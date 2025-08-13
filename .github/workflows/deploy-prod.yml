@@ -23,7 +23,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: EmbeddedCheckout/src/SDK/package-lock.json
+          cache-dependency-path: EmbeddedCheckout/SDK/package-lock.json
           
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -37,12 +37,12 @@ jobs:
 
       - name: Install dependencies
         continue-on-error: true
-        working-directory: EmbeddedCheckout/src/SDK
+        working-directory: EmbeddedCheckout/SDK
         run: npm install
           
       - name: Build
-        working-directory: EmbeddedCheckout/src/SDK
+        working-directory: EmbeddedCheckout/SDK
         run: npm run build
           
       - name: Deploy
-        run: aws s3 sync ./EmbeddedCheckout/src/SDK/dist s3://${{ env.SDK_BUCKET }} --delete
+        run: aws s3 sync ./EmbeddedCheckout/SDK/dist s3://${{ env.SDK_BUCKET }} --delete
