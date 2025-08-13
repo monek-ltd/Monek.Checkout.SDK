@@ -145,3 +145,4 @@ vite.config.ts.timestamp-*
 /SDK/obj/Debug
 /SDK/.vs/sdk/CopilotIndices/17.13.444.19527
 /SDK/.vs/sdk/FileContentIndex
+*.suo
