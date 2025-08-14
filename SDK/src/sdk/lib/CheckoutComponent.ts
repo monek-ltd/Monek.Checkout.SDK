@@ -15,7 +15,7 @@ export class CheckoutComponent {
         root.innerHTML = '';
 
         const iframe = document.createElement('iframe');
-        iframe.src = this.options.frameUrl || 'https://dev-checkout-js.monek.com/src/hostedFields/hosted-fields.html';
+        iframe.src = this.options.frameUrl || 'https://checkout-js.monek.com/src/hostedFields/hosted-fields.html';
         iframe.style.width = '100%';
         iframe.style.height = '120px';
         iframe.style.border = '0';

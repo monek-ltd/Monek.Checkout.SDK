@@ -15,7 +15,7 @@ export class ExpressComponent {
         root.innerHTML = '';
 
         const iframe = document.createElement('iframe');
-        iframe.src = this.options.frameUrl || 'https://dev-checkout-js.monek.com/src/expressCheckout/express-checkout.html';
+        iframe.src = this.options.frameUrl || 'https://checkout-js.monek.com/src/expressCheckout/express-checkout.html';
         iframe.style.width = '100%';
         iframe.style.height = '120px';
         iframe.style.border = '0';

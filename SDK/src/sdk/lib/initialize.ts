@@ -5,11 +5,11 @@ export async function init(publicKey: string, options: Record<string, any> = {})
     if (!publicKey) throw new Error('Missing public key');
 
     const defaultOptions = {
-        environment: 'dev',
+        isTest: false,
         ...options,
     };
 
-    const accessKeyDetails = await fetchAccessKeyDetails(publicKey, defaultOptions.environment);
+    const accessKeyDetails = await fetchAccessKeyDetails(publicKey, defaultOptions.isTest);
 
     return {
         createComponent(
@@ -33,10 +33,10 @@ export async function init(publicKey: string, options: Record<string, any> = {})
     };
 }
 
-export async function fetchAccessKeyDetails(publicKey: string, environment : string) {
-    const baseUrl = environment === 'prod' //TODO: Add staging environment check
-        ? 'https://api.monek.com'
-        : 'https://api-dev.monek.com';
+export async function fetchAccessKeyDetails(publicKey: string, isTest : boolean) {
+    const baseUrl = isTest
+        ? 'https://localhost:55370'
+        : 'https://api.monek.com';
 
     const response = await fetch(`${baseUrl}/embedded-checkout/key/${publicKey}`);
     if (!response.ok) {
