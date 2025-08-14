@@ -28,7 +28,7 @@ jobs:
         with:
             audience: sts.amazonaws.com
             aws-region: ${{ env.AWS_REGION }}
-            role-to-assume: ${{ secret.PIPELINE_EXECUTION_ROLE }}
+            role-to-assume: ${{ secrets.PIPELINE_EXECUTION_ROLE }}
             role-session-name: feature-deployment
             role-duration-seconds: 3600
             role-skip-session-tagging: true
