@@ -1,4 +1,4 @@
-name: Deploy SDK to Production
+name: Deploy checkout-js SDK
 
 on:
   workflow_dispatch:
@@ -6,7 +6,6 @@ on:
 env:
   AWS_REGION: eu-west-2
   NODE_VERSION: 22.x
-  PIPELINE_EXECUTION_ROLE: arn:aws:iam::265496604514:role/GitHub-Actions-Workflow
   SDK_BUCKET: checkout-js.monek.com
 
 jobs:
@@ -29,7 +28,7 @@ jobs:
         with:
             audience: sts.amazonaws.com
             aws-region: ${{ env.AWS_REGION }}
-            role-to-assume: ${{ env.PIPELINE_EXECUTION_ROLE }}
+            role-to-assume: ${{ secret.PIPELINE_EXECUTION_ROLE }}
             role-session-name: feature-deployment
             role-duration-seconds: 3600
             role-skip-session-tagging: true
