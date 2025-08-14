@@ -137,3 +137,13 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+/.vs/Monek.Checkout.SDK/CopilotIndices/17.14.827.52834
+/.vs/Monek.Checkout.SDK/FileContentIndex
+*.wsuo
+/.vs
+/SDK/obj/Debug
+/SDK/.vs/sdk/CopilotIndices/17.13.444.19527
+/SDK/.vs/sdk/FileContentIndex
+*.suo
+/SDK/.vscode
+/SDK/.vite/deps

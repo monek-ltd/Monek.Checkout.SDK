@@ -1,0 +1,34 @@
+{
+  "name": "sdk",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build:site": "vite build",
+    "build:es": "vite build --config src/sdk/vite.config.es.ts",
+    "build:iffe": "vite build --config src/sdk/vite.config.iife.ts",
+    "build:umd": "vite build --config src/sdk/vite.config.umd.ts",
+    "build": "tsc -b && npm run build:site && npm run build:es && npm run build:iffe && npm run build:umd",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.30.1",
+    "@types/node": "^24.0.12",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^4.6.0",
+    "eslint": "^9.30.1",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.20",
+    "globals": "^16.3.0",
+    "typescript": "~5.8.3",
+    "typescript-eslint": "^8.35.1",
+    "vite": "^7.0.3"
+  }
+}
