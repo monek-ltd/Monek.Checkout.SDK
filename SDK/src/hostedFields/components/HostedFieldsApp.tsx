@@ -28,7 +28,7 @@ const HostedFieldsApp: React.FC = () => {
         return sum % 10 === 0;
     };
 
-    // --- tokenise stub (replace with real call to your token service) ---
+    // --- tokenise stub ---
     const tokenise = useCallback(async (): Promise<string> => {
         const pan = onlyDigits(panRef.current?.value || '');
         const exp = (expRef.current?.value || '').trim();
