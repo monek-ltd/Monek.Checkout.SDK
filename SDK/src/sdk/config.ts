@@ -1,3 +1,3 @@
 export const API = {
-    base: 'https://api-dev.monek.com/embedded-checkout',
+    base: 'https://api.monek.com/embedded-checkout', //Change to dev for testing
 };

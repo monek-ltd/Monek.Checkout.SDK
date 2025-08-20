@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useCallback } from 'react'
-import { API } from '../../sdk/config'; // adjust the relative path
+import { API } from '../../sdk/config';
 
 
 function getParams() { return new URLSearchParams(window.location.search); }
@@ -34,7 +34,7 @@ const HostedFieldsApp: React.FC = () => {
         const exp = (expRef.current?.value || '').trim();
         const cvc = onlyDigits(cvcRef.current?.value || '');
 
-        // basic validation (keep it minimal; your real UI can be nicer)
+        // basic validation todo:improve
         if (pan.length < 12 || pan.length > 19) throw new Error('Invalid card number length');
         if (!luhn(pan)) throw new Error('Invalid card number');
         if (!/^\d{2}\/\d{2}$/.test(exp)) throw new Error('Invalid expiry (MM/YY)');
@@ -45,9 +45,9 @@ const HostedFieldsApp: React.FC = () => {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-Api-Key': publicKey, // header name from Postman
+                'X-Api-Key': publicKey,
             },
-            body: JSON.stringify({ pan, cvc, SessionID: sessionId }),
+            body: JSON.stringify({ PAN: pan, CVV: cvc, SessionID: sessionId }),
         });
         if(!res.ok) throw new Error(`Tokenise failed (${res.status})`);
         const data = await res.json();
@@ -61,6 +61,7 @@ const HostedFieldsApp: React.FC = () => {
         window.parent.postMessage({ type: 'ready' }, parentOrigin);
 
         const onMessage = async (evt: MessageEvent) => {
+            console.log('[iframe] got message:', { origin: evt.origin, data: evt.data });
             // Strict origin check unless we’re in dev fallback '*'
             if (parentOrigin !== '*' && evt.origin !== parentOrigin) return;
 

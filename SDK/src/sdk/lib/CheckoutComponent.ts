@@ -1,3 +1,4 @@
+import { interceptFormSubmit } from '../utils/submitInterceptor';
 export class CheckoutComponent {
     private options: Record<string, any>;
     private iframe?: HTMLIFrameElement;
@@ -7,6 +8,8 @@ export class CheckoutComponent {
     private onReady?: () => void;
     private sessionId?: string; 
     private onError?: (e: { code: string; message: string }) => void;
+    private unbindSubmit?: () => void; 
+    private containerEl?: Element; 
 
     constructor(publicKey: string, options: Record<string, any>, onReady?: () => void, onError?: (e: { code: string; message: string }) => void) {
         this.publicKey = publicKey;
@@ -53,11 +56,16 @@ export class CheckoutComponent {
     };
 
     async mount(selector: string) {
+
+        console.log('DEBUG - New Mount');
+
         const root = document.querySelector(selector);
         if (!root) throw new Error(`[Checkout] Mount target '\${selector}' not found`);
 
         const form = root.closest('form');
         if (!form) throw new Error('[Checkout] Mount target must be inside a <form>');
+
+        this.containerEl = root;
 
         root.innerHTML = '';
 
@@ -81,7 +89,31 @@ export class CheckoutComponent {
         root.appendChild(iframe);
         this.iframe = iframe;
 
+        iframe!.contentWindow!.postMessage({ type: 'PING_FROM_PARENT' }, '*');
+
+        this.intercept(form);
+
         window.addEventListener('message', this.handleMessage);
+ }
+
+    intercept(formOrSelector?: string | HTMLFormElement) {
+
+        if (this.unbindSubmit) { this.unbindSubmit(); this.unbindSubmit = undefined; }
+
+        let form: HTMLFormElement | null = null;
+        if (typeof formOrSelector === 'string') {
+            form = document.querySelector<HTMLFormElement>(formOrSelector);
+        } else if (formOrSelector instanceof HTMLFormElement) {
+            form = formOrSelector;
+        } else if (this.containerEl) {
+            form = this.containerEl.closest('form') as HTMLFormElement | null;
+        }
+
+        if (!form) throw new Error('[Checkout] intercept: form not found');
+
+        this.unbindSubmit = interceptFormSubmit(form, this);
+
+        return this.unbindSubmit;
     }
 
     destroy() {
@@ -94,6 +126,9 @@ export class CheckoutComponent {
         if (!this.iframe?.contentWindow) {
             throw new Error('Iframe not ready');
         }
+
+        console.log('DEBUG - New Token Request');
+        this.iframe!.contentWindow!.postMessage({ type: 'tokenise' }, this.targetOrigin);
 
         return new Promise<string>((resolve, reject) => {
             const onMsg = (evt: MessageEvent) => {
@@ -114,6 +149,7 @@ export class CheckoutComponent {
                 }
             };
 
+
             const timer = setTimeout(() => {
                 window.removeEventListener('message', onMsg);
                 reject(new Error('Tokenisation timed out'));
@@ -121,7 +157,8 @@ export class CheckoutComponent {
 
             window.addEventListener('message', onMsg);
             // ask iframe to tokenise (iframe should validate evt.origin === parentOrigin)
-            this.iframe!.contentWindow!.postMessage({ type: 'tokenise' }, this.targetOrigin);
+
+            console.log('DEBUG - Token request Complete');
         });
     }
 }

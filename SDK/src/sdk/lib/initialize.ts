@@ -33,8 +33,13 @@ export async function init(publicKey: string, options: Record<string, any> = {})
     };
 }
 
-export async function fetchAccessKeyDetails(publicKey: string) {
-    const response = await fetch(`${API.base}/embedded-checkout/key/${publicKey}`);
+async function fetchAccessKeyDetails(publicKey: string) {
+    const response = await fetch(`${API.base}/key/${publicKey}`, {
+        method: 'GET',
+        headers: {
+            'x-api-key': publicKey,
+        }
+    });
     if (!response.ok) {
         throw new Error(`Unable to retrieve access key: ${response.status}`);
     }

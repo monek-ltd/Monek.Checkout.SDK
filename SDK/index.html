@@ -7,14 +7,47 @@
 <body>
     <h1>Monek Checkout SDK — Dev Dashboard</h1>
 
-    <h2>Root React App</h2>
-    <div id="root" class="mount"></div>
+    <h2>Test Checkout (SDK-mounted)</h2>
+    <form id="test-form" action="/echo" method="POST">
+        <div id="sdk-container" style="border:1px dashed #ccc; padding:8px;" width="100%" height="120"></div>
+        <button type="submit">Pay</button>
+    </form>
 
-    <h2>Hosted Fields</h2>
-    <iframe src="/src/hostedFields/hosted-fields.html" width="100%" height="120"></iframe>
+    <hr />
+
+    <h2>Hosted Fields (raw iframe preview)</h2>
+    <iframe id="hf" src="/src/hostedFields/hosted-fields.html"
+            width="100%" height="120" style="border:1px solid #eee"></iframe>
 
     <h2>Express Checkout</h2>
-    <iframe src="/src/expressCheckout/express-checkout.html" width="100%" height="80"></iframe>
+    <iframe id="express" src="/src/expressCheckout/express-checkout.html"
+            width="100%" height="80" style="border:1px solid #eee"></iframe>
 
+    <!-- The built SDK (IIFE). -->
+    <script src="/monek-checkout.iife.js"></script>
+    <script>
+        (async function () {
+            // ====== debug taps ======
+            window.addEventListener('message', (evt) => {
+                console.log('[PARENT RX]', evt.origin, evt.data);
+            });
+            console.log('[parent] origin =', window.location.origin);
+
+            // ====== init SDK ======
+            const PUBLIC_KEY = 'PROD-KEY'; // <-- set your dev key
+            if (typeof window.Monek !== 'function') {
+                console.error('Monek SDK not loaded');
+                return;
+            }
+            const sdk = await window.Monek(PUBLIC_KEY);
+
+            // ====== mount checkout via SDK ======
+            const checkout = sdk.createComponent('checkout', {
+                frameUrl: 'https://checkout-js.monek.com/src/hostedFields/hosted-fields.html' //Change to dev for testing
+            });
+
+            checkout.mount('#sdk-container'); 
+        })();
+    </script>
 </body>
 </html>
