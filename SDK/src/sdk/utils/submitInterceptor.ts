@@ -13,7 +13,7 @@ export function interceptFormSubmit(
         busy = true;
         e.preventDefault();
 
-        const submitButtons = form.querySelectorAll<HTMLButtonElement | HTMLInputElement>('[type=submit]');
+        const submitButtons = form.querySelectorAll<HTMLButtonElement | HTMLInputElement>('button, input[type=button], input[type=submit]');
         submitButtons.forEach(b => b.disabled = true);
 
         try {
