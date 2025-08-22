@@ -1,15 +1,15 @@
 import { CheckoutComponent } from './CheckoutComponent';
 import { ExpressComponent } from './ExpressComponent';
+import { API } from '../config';
 
 export async function init(publicKey: string, options: Record<string, any> = {}) {
     if (!publicKey) throw new Error('Missing public key');
 
     const defaultOptions = {
-        isTest: false,
         ...options,
     };
 
-    const accessKeyDetails = await fetchAccessKeyDetails(publicKey, defaultOptions.isTest);
+    const accessKeyDetails = await fetchAccessKeyDetails(publicKey);
 
     return {
         createComponent(
@@ -23,7 +23,7 @@ export async function init(publicKey: string, options: Record<string, any> = {})
 
             switch (type) {
                 case 'checkout':
-                    return new CheckoutComponent(optionsWithApplePay);
+                    return new CheckoutComponent(publicKey, optionsWithApplePay);
                 case 'express':
                     return new ExpressComponent(optionsWithApplePay);
                 default:
@@ -33,12 +33,13 @@ export async function init(publicKey: string, options: Record<string, any> = {})
     };
 }
 
-export async function fetchAccessKeyDetails(publicKey: string, isTest : boolean) {
-    const baseUrl = isTest
-        ? 'https://localhost:55370'
-        : 'https://api.monek.com';
-
-    const response = await fetch(`${baseUrl}/embedded-checkout/key/${publicKey}`);
+async function fetchAccessKeyDetails(publicKey: string) {
+    const response = await fetch(`${API.base}/key/${publicKey}`, {
+        method: 'GET',
+        headers: {
+            'x-api-key': publicKey,
+        }
+    });
     if (!response.ok) {
         throw new Error(`Unable to retrieve access key: ${response.status}`);
     }
