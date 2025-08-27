@@ -21,7 +21,7 @@ export class CheckoutComponent {
 
         const frameUrl =
             this.options.frameUrl ||
-            'https://dev-checkout-js.monek.com/src/hostedFields/hosted-fields.html';
+            'https://checkout-js.monek.com/src/hostedFields/hosted-fields.html';
 
         this.targetOrigin = new URL(frameUrl).origin; // the iframe's origin (strict check)
         this.parentOrigin = window.location.origin;   // who we are (sent to the iframe)

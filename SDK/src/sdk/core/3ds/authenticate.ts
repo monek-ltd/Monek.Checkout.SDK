@@ -5,9 +5,6 @@ import type { InitCallbacks } from '../../types/callbacks';
 
 export async function authenticate(apiKey: string, cardTokenId: string, sessionId: string, callbacks: InitCallbacks, expiry: string): Promise<ThreeDSAuthenticationPayload> {
     
-    console.log('Starting 3DS authentication...');
-    console.log(JSON.stringify(await buildAuthenticationRequest(cardTokenId, sessionId, callbacks, expiry)));
-    
     const res = await fetch(`${API.base}/3ds/authenticate`, {
         method: 'POST',
         headers: {
