@@ -1,6 +1,7 @@
 ﻿import type { CheckoutComponent } from "../lib/CheckoutComponent";
-import { start3DS } from '../core/start3ds';
-import { performThreeDSMethod } from '../core/performThreeDSMethod';
+import { getThreeDSMethodData } from '../core/3ds/panInformation';
+import { performThreeDSMethodInvocation } from '../core/3ds/methodInvocation';
+import { authenticate } from '../core/3ds/authenticate';
 
 export function interceptFormSubmit(
     form: HTMLFormElement,
@@ -24,16 +25,23 @@ export function interceptFormSubmit(
             const cardTokenId = await component.requestToken();
 
             // 2) start 3DS
-            const threeDS = await start3DS(component.getPublicKey(), cardTokenId, sessionId);
+            const threeDS = await getThreeDSMethodData(component.getPublicKey(), cardTokenId, sessionId);
 
             // 3) Run 3DS Method (if provided)
-            await performThreeDSMethod(
+            await performThreeDSMethodInvocation(
                 threeDS.threeDSRequest.methodUrl,
                 threeDS.threeDSRequest.methodData,
                 10000
             );
 
-            // 4) attach results & submit
+            // 4) Call 3DS Authentication
+            const challenge = await authenticate(component.getPublicKey(), cardTokenId, sessionId, component.getCallbacks(), await component.requestExpiry())
+            if (challenge.errorMessage) {
+                throw new Error(`3DS authentication error: ${challenge.errorMessage}`);
+            }
+            console.log('3DS authentication result:', challenge);
+
+            // 5) attach results & submit
             attachHidden(form, 'CardTokenID', cardTokenId);
             attachHidden(form, 'SessionID', sessionId);
 

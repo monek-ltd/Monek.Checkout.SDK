@@ -1,4 +1,4 @@
-export async function performThreeDSMethod(methodUrl?: string | null, methodData?: string | null, timeoutMs = 10000): Promise<'skipped' | 'performed' | 'timeout'> {
+export async function performThreeDSMethodInvocation(methodUrl?: string | null, methodData?: string | null, timeoutMs = 10000): Promise<'skipped' | 'performed' | 'timeout'> {
     if (!methodUrl || !methodData) {
         return 'skipped';
     }

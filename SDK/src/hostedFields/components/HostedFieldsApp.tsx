@@ -78,6 +78,23 @@ const HostedFieldsApp: React.FC = () => {
                     }, parentOrigin);
                 }
             }
+            else if (data.type === 'getExpiry') {
+                try {
+                    const exp = (expRef.current?.value || '').trim();
+                    if (!/^\d{2}\/\d{2}$/.test(exp)) {
+                        throw new Error('Invalid expiry (MM/YY)');
+                    }
+
+                    window.parent.postMessage({ type: 'expiry', expiry: exp }, parentOrigin);
+
+                } catch (err: any) {
+                    window.parent.postMessage({
+                        type: 'error',
+                        code: 'EXPIRY_FAILED',
+                        message: err?.message || 'Expiry retrieval failed'
+                    }, parentOrigin);
+                }
+            }
         };
 
         window.addEventListener('message', onMessage);

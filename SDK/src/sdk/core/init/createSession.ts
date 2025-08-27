@@ -1,4 +1,4 @@
-import { API } from '../config';
+import { API } from '../../config';
 
 export async function createSession(apiKey: string): Promise<string> {
     const res = await fetch(`${API.base}/session`, {
