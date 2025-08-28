@@ -27,7 +27,7 @@ export function challenge(options: ChallengeOptions){
 
     const closeBtn = document.createElement('button');
     closeBtn.type = 'button';
-    closeBtn.textContent = '×';
+    closeBtn.textContent =  '\u00D7';
     closeBtn.setAttribute('aria-label', 'Close');
     closeBtn.style.cssText = `
         position:absolute; top:8px; right:12px; border:0; background:transparent;
@@ -109,18 +109,26 @@ export function challenge(options: ChallengeOptions){
   return { done, close: cleanup };
 }
 
+export function getWindowSize(size: ChallengeSize): string { 
+    if (typeof size === 'string') {
+        switch (size) {
+            case 'small':  return '250px';
+            case 'large':  return '600px';
+            case 'medium':
+            default:       return '500px';
+        }
+    }
+    else {
+        return `${Math.max(size.width, size.height)}px`;
+    }
+}
+
 function sizeToCss(size: ChallengeSize): string {
   if (typeof size === 'string') {
-    switch (size) {
-      case 'small':  return 'width:250px; height:400px;';
-      case 'large':  return 'width:600px; height:400px;';
-      case 'medium':
-      default:       return 'width:500px; height:600px;';
+      let pixals = getWindowSize(size);
+      return `width:${pixals}; height:${pixals};`;
     }
-  }
-  const w = Math.max(240, Math.min(size.width, 800));
-  const h = Math.max(320, Math.min(size.height, 800));
-  return `width:${w}px; height:${h}px;`;
+    return `width:${size.width}px; height:${size.height}px;`;
 }
 
 function escapeHtml(s: string) {

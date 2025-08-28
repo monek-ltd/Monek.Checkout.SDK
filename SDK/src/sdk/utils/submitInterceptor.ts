@@ -36,7 +36,14 @@ export function interceptFormSubmit(
             );
 
             // 4) Call 3DS Authentication
-            const authenticationResult = await authenticate(component.getPublicKey(), cardTokenId, sessionId, component.getCallbacks(), await component.requestExpiry())
+            const authenticationResult = await authenticate(
+                component.getPublicKey(), 
+                cardTokenId, 
+                sessionId, 
+                component.getCallbacks(), 
+                await component.requestExpiry(), 
+                component['options']?.challenge?.size ?? 'medium')
+
             if (authenticationResult.errorMessage) {
                 throw new Error(`3DS authentication error: ${authenticationResult.errorMessage}`);
             }
@@ -73,7 +80,7 @@ export function interceptFormSubmit(
                 }
             }
             // 4b) If not authenticated, do something
-            else if(authenticationResult === 'not-authenticated') {
+            else if(authenticationResult.result === 'not-authenticated') {
                 //TODO
             }
 
