@@ -21,7 +21,7 @@ export async function authenticate(apiKey: string, cardTokenId: string, sessionI
         errorMessage: j.ErrorMessage ?? j.errorMessage,
         scheme: j.Scheme ?? j.scheme,
         protocolVersion: j.ProtocolVersion ?? j.protocolVersion,
-        serverTransactionId: j.ServerTransactionID ?? j.serverTransactionID,
+        serverTransactionId: j.ServerTransactionID ?? j.serverTransactionID, //TODO REMOVE
         challenge: {
             cReq: j.Challenge?.CReq ?? j.challenge?.cReq,
             acsUrl: j.Challenge?.AcsUrl ?? j.challenge?.acsUrl,

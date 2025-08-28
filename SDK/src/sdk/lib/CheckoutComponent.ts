@@ -1,4 +1,5 @@
 import { interceptFormSubmit } from '../utils/submitInterceptor';
+import { validateCallbacks } from '../core/init/validate';
 import type { InitCallbacks } from '../types/callbacks';
 export class CheckoutComponent {
     private options: Record<string, any>;
@@ -26,7 +27,10 @@ export class CheckoutComponent {
         this.targetOrigin = new URL(frameUrl).origin; // the iframe's origin (strict check)
         this.parentOrigin = window.location.origin;   // who we are (sent to the iframe)
 
-        this.callbacks = options.callbacks as InitCallbacks | undefined; // TODO : Add Validation
+        validateCallbacks(options);
+        this.callbacks = options.callbacks as InitCallbacks | undefined;
+
+        this.options.challenge = this.options.challenge ?? { display: 'popup', size: 'medium' };
     }
 
     public getCallbacks() {
