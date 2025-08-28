@@ -1,4 +1,5 @@
 import { interceptFormSubmit } from '../utils/submitInterceptor';
+import type { InitCallbacks } from '../types/callbacks';
 export class CheckoutComponent {
     private options: Record<string, any>;
     private iframe?: HTMLIFrameElement;
@@ -10,6 +11,7 @@ export class CheckoutComponent {
     private onError?: (e: { code: string; message: string }) => void;
     private unbindSubmit?: () => void; 
     private containerEl?: Element; 
+    private callbacks?: InitCallbacks;
 
     constructor(publicKey: string, options: Record<string, any>, onReady?: () => void, onError?: (e: { code: string; message: string }) => void) {
         this.publicKey = publicKey;
@@ -23,6 +25,15 @@ export class CheckoutComponent {
 
         this.targetOrigin = new URL(frameUrl).origin; // the iframe's origin (strict check)
         this.parentOrigin = window.location.origin;   // who we are (sent to the iframe)
+
+        this.callbacks = options.callbacks as InitCallbacks | undefined; // TODO : Add Validation
+    }
+
+    public getCallbacks() {
+        if(!this.callbacks) {
+            throw new Error('Callbacks not set. Provide them during instantiation.');
+        }
+        return this.callbacks;
     }
 
     public getSessionId() {
@@ -69,11 +80,11 @@ export class CheckoutComponent {
 
         root.innerHTML = '';
 
-        this.sessionId = await (await import('../core/createSession')).createSession(this.publicKey);
+        this.sessionId = await (await import('../core/init/createSession')).createSession(this.publicKey);
 
         const base =
             this.options.frameUrl ||
-            'https://checkout-js.monek.com/src/hostedFields/hosted-fields.html';
+            'https://dev-checkout-js.monek.com/src/hostedFields/hosted-fields.html';
         const url = new URL(base);
         url.searchParams.set('parentOrigin', this.parentOrigin);
         url.searchParams.set('sessionId', this.sessionId);
@@ -121,6 +132,42 @@ export class CheckoutComponent {
         this.iframe?.remove();
         this.iframe = undefined;
     }
+
+    async requestExpiry(): Promise<string> {
+    if (!this.iframe?.contentWindow) {
+        throw new Error('Iframe not ready');
+    }
+
+    console.log('DEBUG - New Expiry Request');
+    this.iframe!.contentWindow!.postMessage({ type: 'getExpiry' }, this.targetOrigin);
+
+    return new Promise<string>((resolve, reject) => {
+        const onMsg = (evt: MessageEvent) => {
+            if (evt.origin !== this.targetOrigin) {
+                return;
+            }
+            const data = evt.data || {};
+            if (data?.type === 'expiry') {
+                window.removeEventListener('message', onMsg);
+                clearTimeout(timer);
+                resolve(data.expiry);
+            }
+            if (data?.type === 'error') {
+                window.removeEventListener('message', onMsg);
+                clearTimeout(timer);
+                reject(new Error(data.message || 'Expiry retrieval failed'));
+            }
+        };
+
+        const timer = setTimeout(() => {
+            window.removeEventListener('message', onMsg);
+            reject(new Error('Expiry retrieval timed out'));
+        }, 20000);
+
+        window.addEventListener('message', onMsg);
+    });
+}
+
 
     async requestToken(): Promise<string> {
         if (!this.iframe?.contentWindow) {

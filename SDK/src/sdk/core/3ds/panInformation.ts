@@ -1,7 +1,7 @@
-import { API } from '../config';
-import type { ThreeDSMethodPayload } from '../types/three-ds';
+import { API } from '../../config';
+import type { ThreeDSMethodPayload } from '../../types/three-ds-payloads';
 
-export async function start3DS(apiKey: string, cardTokenId: string, sessionId: string): Promise<ThreeDSMethodPayload> {
+export async function getThreeDSMethodData(apiKey: string, cardTokenId: string, sessionId: string): Promise<ThreeDSMethodPayload> {
     const res = await fetch(`${API.base}/3ds`, {
         method: 'POST',
         headers: {

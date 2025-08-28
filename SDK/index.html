@@ -9,6 +9,54 @@
 
     <h2>Test Checkout (SDK-mounted)</h2>
     <form id="test-form" action="/echo" method="POST">
+
+        <!-- Cardholder Name -->
+        <label>
+            Name on Card
+            <input type="text" name="billingName" autocomplete="cc-name" required />
+        </label>
+
+        <!-- Email -->
+        <label>
+            Email
+            <input type="email" name="billingEmail" autocomplete="email" required />
+        </label>
+
+        <!-- Phone -->
+        <label>
+            Phone
+            <input type="tel" name="billingPhone" autocomplete="tel" />
+        </label>
+
+        <!-- Address lines -->
+        <label>
+            Address Line 1
+            <input type="text" name="billingAddress1" autocomplete="address-line1" required />
+        </label>
+
+        <label>
+            Address Line 2
+            <input type="text" name="billingAddress2" autocomplete="address-line2" />
+        </label>
+
+        <!-- City -->
+        <label>
+            City
+            <input type="text" name="billingCity" autocomplete="address-level2" required />
+        </label>
+
+        <!-- Postcode -->
+        <label>
+            Postcode
+            <input type="text" name="billingPostcode" autocomplete="postal-code" required />
+        </label>
+
+        <!-- Country (numeric code or ISO alpha-2, depending on your API) -->
+        <label>
+            Country
+            <input type="text" name="billingCountry" placeholder="826" required />
+        </label>
+
         <div id="sdk-container" style="border:1px dashed #ccc; padding:8px;" width="100%" height="120"></div>
         <button type="submit">Pay</button>
     </form>
@@ -34,17 +82,40 @@
             console.log('[parent] origin =', window.location.origin);
 
             // ====== init SDK ======
-            const PUBLIC_KEY = 'PROD-KEY'; // <-- set your dev key
+            const PUBLIC_KEY = 'INSERT_KEY'; // <-- set your dev key
             if (typeof window.Monek !== 'function') {
                 console.error('Monek SDK not loaded');
                 return;
             }
             const sdk = await window.Monek(PUBLIC_KEY);
+            
+            const formEl = document.getElementById('test-form');
 
             // ====== mount checkout via SDK ======
             const checkout = sdk.createComponent('checkout', {
-                frameUrl: 'https://checkout-js.monek.com/src/hostedFields/hosted-fields.html' //Change to dev for testing
-            });
+                frameUrl: 'INSERT_URL', //Change to dev for testing
+                callbacks: {
+                  getAmount: () => ({ value: 1000, currencyCode: '826' }),
+                  getCardholderDetails: () => {
+                    const fd = new FormData(formEl);
+                    console.log("Fetching form data.")
+
+                    return {
+                      name: fd.get('billingName'),
+                      email: fd.get('billingEmail'),
+                      HomePhone: fd.get('billingPhone'),
+                      billingAddress: {
+                        addressLine1: fd.get('billingAddress1'),
+                        addressLine2: fd.get('billingAddress2'),
+                        city: fd.get('billingCity'),
+                        postcode: fd.get('billingPostcode'),
+                        country: fd.get('billingCountry'),
+                      }
+                    };
+                  },
+                  getDescription: () => 'goods',
+                }
+              });
 
             checkout.mount('#sdk-container'); 
         })();
