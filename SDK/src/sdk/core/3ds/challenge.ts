@@ -70,8 +70,9 @@ export function challenge(options: ChallengeOptions){
 
     const done = new Promise<ChallengeResult>((resolve) => (resolveOnce = (r) => {
         if (settled) {
-            return; settled = true;
+            return;
         }
+        settled = true;
         resolve(r);
     }));
 
