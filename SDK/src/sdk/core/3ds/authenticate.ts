@@ -1,9 +1,11 @@
 import { API } from '../../config';
 import { collectBrowserInformation } from '../utils/collectBrowserData';
+import { getWindowSize } from './challenge'
 import type { ThreeDSAuthenticationPayload } from '../../types/three-ds-payloads';
 import type { InitCallbacks } from '../../types/callbacks';
+import type { ChallengeSize } from '../../types/challenge-window'
 
-export async function authenticate(apiKey: string, cardTokenId: string, sessionId: string, callbacks: InitCallbacks, expiry: string): Promise<ThreeDSAuthenticationPayload> {
+export async function authenticate(apiKey: string, cardTokenId: string, sessionId: string, callbacks: InitCallbacks, expiry: string, size: ChallengeSize): Promise<ThreeDSAuthenticationPayload> {
     
     const res = await fetch(`${API.base}/3ds/authenticate`, {
         method: 'POST',
@@ -11,7 +13,7 @@ export async function authenticate(apiKey: string, cardTokenId: string, sessionI
             'Content-Type': 'application/json',
             'x-api-key': apiKey,
         },
-        body: JSON.stringify(await buildAuthenticationRequest(cardTokenId, sessionId, callbacks, expiry)),
+        body: JSON.stringify(await buildAuthenticationRequest(cardTokenId, sessionId, callbacks, expiry, size)),
     });
     if (!res.ok) throw new Error(`3DS authenticate failed (${res.status})`);
     const j = await res.json();
@@ -21,7 +23,7 @@ export async function authenticate(apiKey: string, cardTokenId: string, sessionI
         errorMessage: j.ErrorMessage ?? j.errorMessage,
         scheme: j.Scheme ?? j.scheme,
         protocolVersion: j.ProtocolVersion ?? j.protocolVersion,
-        serverTransactionId: j.ServerTransactionID ?? j.serverTransactionID,
+        serverTransactionId: j.ServerTransactionID ?? j.serverTransactionID, //TODO REMOVE
         challenge: {
             cReq: j.Challenge?.CReq ?? j.challenge?.cReq,
             acsUrl: j.Challenge?.AcsUrl ?? j.challenge?.acsUrl,
@@ -30,7 +32,7 @@ export async function authenticate(apiKey: string, cardTokenId: string, sessionI
     return payload;
 }
 
-async function buildAuthenticationRequest(cardTokenId: string, sessionId: string, callbacks: InitCallbacks, expiry: string) {
+async function buildAuthenticationRequest(cardTokenId: string, sessionId: string, callbacks: InitCallbacks, expiry: string, size: ChallengeSize) {
     
     const amount = 
         callbacks?.getAmount 
@@ -74,5 +76,7 @@ async function buildAuthenticationRequest(cardTokenId: string, sessionId: string
       description,
       cardExpiryMonth: expiryMonth,
       cardExpiryYear: expiryYear,
+      challengeWindowSize: getWindowSize(size),
+      challengePreference: "03"//TEMP
     };
 }
