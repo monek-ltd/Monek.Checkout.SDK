@@ -32,7 +32,7 @@ export async function applePayEventHandler() {
             validationURL: event.validationURL,
             displayName: applePayRequest.total.label,
             version: 'v2',
-            parentUrl: window.parent.location.href,
+            parentUrl: document.referrer,
             // TODO get this from session obj
             merchantRef: ''
         };
