@@ -15,7 +15,10 @@ export async function authenticate(apiKey: string, cardTokenId: string, sessionI
         },
         body: JSON.stringify(await buildAuthenticationRequest(cardTokenId, sessionId, callbacks, expiry, size)),
     });
-    if (!res.ok) throw new Error(`3DS authenticate failed (${res.status})`);
+    if (!res.ok) {
+        throw new Error(`3DS authenticate failed (${res.status})`);
+    }
+
     const j = await res.json();
 
     const payload: ThreeDSAuthenticationPayload = {
@@ -77,6 +80,6 @@ async function buildAuthenticationRequest(cardTokenId: string, sessionId: string
       cardExpiryMonth: expiryMonth,
       cardExpiryYear: expiryYear,
       challengeWindowSize: getWindowSize(size),
-      challengePreference: "03"//TEMP
+      //challengePreference: "03"
     };
 }

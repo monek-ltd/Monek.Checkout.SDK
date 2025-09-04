@@ -1,8 +1,12 @@
-import { interceptFormSubmit } from '../utils/submitInterceptor';
+import { interceptFormSubmit } from '../core/submitInterceptor';
 import { validateCallbacks } from '../core/init/validate';
 import type { InitCallbacks } from '../types/callbacks';
+import type { CompletionOptions } from '../types/completion';
+import type { Intent, CardEntry, Order } from '../types/transaction-details';
+
 export class CheckoutComponent {
     private options: Record<string, any>;
+    private frameUrl: string;
     private iframe?: HTMLIFrameElement;
     private targetOrigin: string;
     private publicKey: string;
@@ -12,32 +16,54 @@ export class CheckoutComponent {
     private onError?: (e: { code: string; message: string }) => void;
     private unbindSubmit?: () => void; 
     private containerEl?: Element; 
-    private callbacks?: InitCallbacks;
 
     constructor(publicKey: string, options: Record<string, any>, onReady?: () => void, onError?: (e: { code: string; message: string }) => void) {
         this.publicKey = publicKey;
         this.options = options;
         this.onReady = onReady;
         this.onError = onError;
-
-        const frameUrl =
+        this.frameUrl =
             this.options.frameUrl ||
             'https://checkout-js.monek.com/src/hostedFields/hosted-fields.html';
 
-        this.targetOrigin = new URL(frameUrl).origin; // the iframe's origin (strict check)
+        this.targetOrigin = new URL(this.frameUrl).origin; // the iframe's origin (strict check)
         this.parentOrigin = window.location.origin;   // who we are (sent to the iframe)
 
-        validateCallbacks(options);
-        this.callbacks = options.callbacks as InitCallbacks | undefined;
+        validateCallbacks(this.options);
 
-        this.options.challenge = this.options.challenge ?? { display: 'popup', size: 'medium' };
+        if (this.options?.completion?.mode === 'client' && !this.options?.completion?.onSuccess) {
+            throw new Error('Client-side completion requires an onSuccess callback.');
+        }
+    }
+
+    public getIntent() {
+        return this.options.intent ?? 'purchase' as Intent;
+    }
+
+    public getCardEntry() {
+        return this.options.cardEntry ?? 'e-commerce' as CardEntry;
+    }
+
+    public getChallengeOptions() {
+        return this.options.challenge ?? { display: 'popup', size: 'medium' };
+    }
+
+    public getOrder() {
+        return this.options.order ?? 'checkout' as Order;
     }
 
     public getCallbacks() {
-        if(!this.callbacks) {
+        validateCallbacks(this.options);
+        let callbacks = this.options.callbacks as InitCallbacks | undefined;
+
+        if(!callbacks) {
             throw new Error('Callbacks not set. Provide them during instantiation.');
         }
-        return this.callbacks;
+        return callbacks;
+    }
+
+    public getCompletionOptions() {
+        return this.options.completion as CompletionOptions | undefined;
     }
 
     public getSessionId() {
@@ -86,10 +112,7 @@ export class CheckoutComponent {
 
         this.sessionId = await (await import('../core/init/createSession')).createSession(this.publicKey);
 
-        const base =
-            this.options.frameUrl ||
-            'https://dev-checkout-js.monek.com/src/hostedFields/hosted-fields.html';
-        const url = new URL(base);
+        const url = new URL(this.frameUrl);
         url.searchParams.set('parentOrigin', this.parentOrigin);
         url.searchParams.set('sessionId', this.sessionId);
         url.searchParams.set('publicKey', this.publicKey);
@@ -109,7 +132,7 @@ export class CheckoutComponent {
         this.intercept(form);
 
         window.addEventListener('message', this.handleMessage);
- }
+    }
 
     intercept(formOrSelector?: string | HTMLFormElement) {
 
@@ -138,39 +161,39 @@ export class CheckoutComponent {
     }
 
     async requestExpiry(): Promise<string> {
-    if (!this.iframe?.contentWindow) {
-        throw new Error('Iframe not ready');
+        if (!this.iframe?.contentWindow) {
+            throw new Error('Iframe not ready');
+        }
+
+        console.log('DEBUG - New Expiry Request');
+        this.iframe!.contentWindow!.postMessage({ type: 'getExpiry' }, this.targetOrigin);
+
+        return new Promise<string>((resolve, reject) => {
+            const onMsg = (evt: MessageEvent) => {
+                if (evt.origin !== this.targetOrigin) {
+                    return;
+                }
+                const data = evt.data || {};
+                if (data?.type === 'expiry') {
+                    window.removeEventListener('message', onMsg);
+                    clearTimeout(timer);
+                    resolve(data.expiry);
+                }
+                if (data?.type === 'error') {
+                    window.removeEventListener('message', onMsg);
+                    clearTimeout(timer);
+                    reject(new Error(data.message || 'Expiry retrieval failed'));
+                }
+            };
+
+            const timer = setTimeout(() => {
+                window.removeEventListener('message', onMsg);
+                reject(new Error('Expiry retrieval timed out'));
+            }, 20000);
+
+            window.addEventListener('message', onMsg);
+        });
     }
-
-    console.log('DEBUG - New Expiry Request');
-    this.iframe!.contentWindow!.postMessage({ type: 'getExpiry' }, this.targetOrigin);
-
-    return new Promise<string>((resolve, reject) => {
-        const onMsg = (evt: MessageEvent) => {
-            if (evt.origin !== this.targetOrigin) {
-                return;
-            }
-            const data = evt.data || {};
-            if (data?.type === 'expiry') {
-                window.removeEventListener('message', onMsg);
-                clearTimeout(timer);
-                resolve(data.expiry);
-            }
-            if (data?.type === 'error') {
-                window.removeEventListener('message', onMsg);
-                clearTimeout(timer);
-                reject(new Error(data.message || 'Expiry retrieval failed'));
-            }
-        };
-
-        const timer = setTimeout(() => {
-            window.removeEventListener('message', onMsg);
-            reject(new Error('Expiry retrieval timed out'));
-        }, 20000);
-
-        window.addEventListener('message', onMsg);
-    });
-}
 
 
     async requestToken(): Promise<string> {
