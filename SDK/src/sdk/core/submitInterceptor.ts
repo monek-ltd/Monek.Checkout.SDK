@@ -44,6 +44,7 @@ export function interceptFormSubmit(
 
             // 1) tokenise (iframe → token endpoint)
             const cardTokenId = await component.requestToken();
+            const expiry = await component.requestExpiry();
 
             // 2) start 3DS
             const threeDS = await getThreeDSMethodData(component.getPublicKey(), cardTokenId, sessionId);
@@ -60,8 +61,8 @@ export function interceptFormSubmit(
                 component.getPublicKey(), 
                 cardTokenId, 
                 sessionId, 
-                component.getCallbacks(), 
-                await component.requestExpiry(), 
+                component.getCallbacks()!, 
+                expiry, 
                 component.getChallengeOptions().size ?? 'medium')
 
             if (authenticationResult.errorMessage) {
@@ -123,12 +124,11 @@ export function interceptFormSubmit(
             if (completionOptions?.mode == 'client') {
                 // 5a) pay
                 const paymentResult = await pay(
-                    component.getPublicKey(),
                     cardTokenId,
                     sessionId,
-                    component.getCallbacks(),
-                    await component.requestExpiry())
-
+                    expiry,
+                    component
+                )
 
                 // 5b) redirect to success or failure url
                 const normalisedPaymentResponse = normalisePayment(paymentResult);

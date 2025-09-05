@@ -82,7 +82,7 @@
             console.log('[parent] origin =', window.location.origin);
 
             // ====== init SDK ======
-            const PUBLIC_KEY = 'live_433834c4d38943049107fb5be88a62ea'; // <-- set your dev key
+            const PUBLIC_KEY = 'live_...'; // <-- set your dev key
             if (typeof window.Monek !== 'function') {
                 console.error('Monek SDK not loaded');
                 return;
@@ -93,7 +93,7 @@
 
             // ====== mount checkout via SDK ======
             const checkout = sdk.createComponent('checkout', {
-                frameUrl: 'https://dev-checkout-js.monek.com/src/hostedFields/hosted-fields.html', //Change to dev for testing
+                frameUrl: 'https://checkout-js.monek.com/src/hostedFields/hosted-fields.html', //Change to dev for testing
                 callbacks: {
                   getAmount: () => ({ value: 1000, currencyCode: '826' }),
                   getCardholderDetails: () => {
@@ -144,6 +144,11 @@
                             reenable();
                         },
                     },
+                    intent: 'Purchase',
+                    order: 'Checkout',
+                    settlementType: 'Auto',
+                    storeCardDetails: false,
+                    cardEntry: 'Ecommerce',
                 }
               });
 

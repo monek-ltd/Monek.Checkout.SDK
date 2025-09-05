@@ -2,7 +2,8 @@ import { interceptFormSubmit } from '../core/submitInterceptor';
 import { validateCallbacks } from '../core/init/validate';
 import type { InitCallbacks } from '../types/callbacks';
 import type { CompletionOptions } from '../types/completion';
-import type { Intent, CardEntry, Order } from '../types/transaction-details';
+import type { Intent, CardEntry, Order, SettlementType } from '../types/transaction-details';
+import type { ChallengeOptions } from '../types/challenge-window';
 
 export class CheckoutComponent {
     private options: Record<string, any>;
@@ -36,23 +37,31 @@ export class CheckoutComponent {
         }
     }
 
-    public getIntent() {
-        return this.options.intent ?? 'purchase' as Intent;
+    public getSettlementType(): SettlementType {
+        return this.options.settlementType ?? 'Auto' as SettlementType;
     }
 
-    public getCardEntry() {
-        return this.options.cardEntry ?? 'e-commerce' as CardEntry;
+    public getStoreCardDetails(): boolean {
+        return this.options.storeCardDetails ?? false as boolean;
     }
 
-    public getChallengeOptions() {
-        return this.options.challenge ?? { display: 'popup', size: 'medium' };
+    public getIntent(): Intent {
+        return this.options.intent ?? 'Purchase' as Intent;
     }
 
-    public getOrder() {
-        return this.options.order ?? 'checkout' as Order;
+    public getCardEntry(): CardEntry {
+        return this.options.cardEntry ?? 'ECommerce' as CardEntry;
     }
 
-    public getCallbacks() {
+    public getChallengeOptions(): ChallengeOptions {
+        return this.options.challenge ?? { display: 'popup', size: 'medium' } as ChallengeOptions;
+    }
+
+    public getOrder(): Order {
+        return this.options.order ?? 'Checkout' as Order;
+    }
+
+    public getCallbacks(): InitCallbacks | undefined {
         validateCallbacks(this.options);
         let callbacks = this.options.callbacks as InitCallbacks | undefined;
 
@@ -62,18 +71,18 @@ export class CheckoutComponent {
         return callbacks;
     }
 
-    public getCompletionOptions() {
+    public getCompletionOptions(): CompletionOptions | undefined {
         return this.options.completion as CompletionOptions | undefined;
     }
 
-    public getSessionId() {
+    public getSessionId(): string {
         if (!this.sessionId) {
             throw new Error('Session ID not set. Call mount() first.');
         }
         return this.sessionId;
     }
 
-    public getPublicKey() {
+    public getPublicKey(): string {
         if (!this.publicKey) {
             throw new Error('Public key not set. Provide it during instantiation.');
         }

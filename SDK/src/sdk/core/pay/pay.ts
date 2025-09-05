@@ -1,17 +1,21 @@
 import { API } from '../../config';
+import { CheckoutComponent } from '../../lib/CheckoutComponent';
 import type { PaymentResponse } from '../../types/payment-payloads';
-import type { InitCallbacks } from '../../types/callbacks';
 
 
-export async function pay(apiKey: string, cardTokenId: string, sessionId: string, callbacks: InitCallbacks, expiry: string): Promise<PaymentResponse> {
+export async function pay(
+    cardTokenId: string,
+    sessionId: string,
+    expiry: string,
+    component: CheckoutComponent): Promise<PaymentResponse> {
 
     const res = await fetch(`${API.base}/payment`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'x-api-key': apiKey,
+            'x-api-key': component.getPublicKey(),
         },
-        body: JSON.stringify(await buildPaymentRequest(cardTokenId, sessionId, callbacks, expiry)),
+        body: JSON.stringify(await buildPaymentRequest(cardTokenId, sessionId, expiry, component)),
     });
     if (!res.ok) {
         throw new Error(`payment failed (${res.status})`);
@@ -28,8 +32,14 @@ export async function pay(apiKey: string, cardTokenId: string, sessionId: string
     return payload;
 }
 
-async function buildPaymentRequest(cardTokenId: string, sessionId: string, callbacks: InitCallbacks, expiry: string) {
+async function buildPaymentRequest(
+    cardTokenId: string,
+    sessionId: string,
+    expiry: string,
+    component: CheckoutComponent
+    ) {
 
+    const callbacks = component.getCallbacks();
     const amount =
         callbacks?.getAmount
             ? await callbacks.getAmount()
@@ -63,8 +73,10 @@ async function buildPaymentRequest(cardTokenId: string, sessionId: string, callb
     return {
         sessionId,
         cardTokenId,
-        deferred: false, //TODO
-        paymentType: 'ECommerce', //TODO
+        settlementType: component.getSettlementType(),
+        cardEntry: component.getCardEntry(),
+        intent: component.getIntent(),
+        order: component.getOrder(),
         card: {
             cardExpiryMonth: expiryMonth,
             cardExpiryYear: expiryYear,
@@ -73,9 +85,7 @@ async function buildPaymentRequest(cardTokenId: string, sessionId: string, callb
             name: cardholderInformation.name,
             emailAddress: cardholderInformation.email,
             phoneNumber: cardholderInformation.phone,
-        }
-        //intent: 'purchase', //TODO
-        //Order,
-        //StoreCardDetails
+        },
+        storeCardDetails: component.getStoreCardDetails()
     };
 }
