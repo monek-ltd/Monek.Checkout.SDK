@@ -12,3 +12,7 @@ export type CardholderDetails = {
     phone?: string;
     billingAddress?: Address;
 };
+export type Intent = 'Purchase' | 'AccountStatus' | 'Subscription';
+export type CardEntry = 'ECommerce' | 'Manual' | 'CardOnFile';
+export type Order = 'Checkout' | 'Mail' | 'Telephone' | 'Recurring' | 'Instalments';
+export type SettlementType = 'Auto' | 'Manual';

@@ -82,7 +82,7 @@
             console.log('[parent] origin =', window.location.origin);
 
             // ====== init SDK ======
-            const PUBLIC_KEY = 'INSERT_KEY'; // <-- set your dev key
+            const PUBLIC_KEY = 'live_...'; // <-- set your dev key
             if (typeof window.Monek !== 'function') {
                 console.error('Monek SDK not loaded');
                 return;
@@ -93,7 +93,7 @@
 
             // ====== mount checkout via SDK ======
             const checkout = sdk.createComponent('checkout', {
-                frameUrl: 'INSERT_URL', //Change to dev for testing
+                frameUrl: 'https://checkout-js.monek.com/src/hostedFields/hosted-fields.html', //Change to dev for testing
                 callbacks: {
                   getAmount: () => ({ value: 1000, currencyCode: '826' }),
                   getCardholderDetails: () => {
@@ -113,7 +113,42 @@
                       }
                     };
                   },
-                  getDescription: () => 'goods',
+                    getDescription: () => 'goods',
+
+                    challenge: { display: 'popup', size: 'medium' },
+
+                    completion: {
+                        mode: 'client', // 'client' = SDK calls /payment; 'form' = merchant server will
+
+                        // onSuccess can be:
+                        //   1) redirect object,
+                        //   2) function(ctx, helpers) { ...; return string|Redirect; } or do nothing,
+                        //   3) undefined (SDK falls back to posting the form)
+                        onSuccess: (ctx, { redirect }) => {
+                            console.log('[completion] success ctx:', ctx);
+                            // Return a URL string for convenience redirect:
+                            return `/thank-you?s=${encodeURIComponent(ctx.sessionId)}`;
+                        },
+
+                        // onError can re-enable UI, show message, or redirect somewhere:
+                        onError: (ctx, { reenable }) => {
+                            console.warn('[completion] error ctx:', ctx);
+                            reenable();
+                            alert(ctx?.payment?.Message || 'Payment failed. Please try another card.');
+                            // or: return { url:'/payment-error', method:'GET', parameters:{ s: ctx.sessionId } };
+                        },
+
+                        // onCancel (challenge closed by user) → keep shopper on page
+                        onCancel: (ctx, { reenable }) => {
+                            console.log('[completion] cancel ctx:', ctx);
+                            reenable();
+                        },
+                    },
+                    intent: 'Purchase',
+                    order: 'Checkout',
+                    settlementType: 'Auto',
+                    storeCardDetails: false,
+                    cardEntry: 'Ecommerce',
                 }
               });
 
