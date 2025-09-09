@@ -2,7 +2,7 @@ export async function apiFetch(
   input: RequestInfo,
   init: RequestInit = {}
 ): Promise<Response> {
-  const apiKey = import.meta.env.VITE_API_KEY;
+  const apiKey = ""; // Replace with the actual API key
 
   const headers = {
     ...(init.headers || {}),
