@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react'
+import { applePayEventHandler } from '../../sdk/lib/applePayEventHandler';
 
 declare module 'react' {
     namespace JSX {
@@ -30,11 +31,23 @@ const ExpressCheckoutApp: React.FC = () => {
             const btn = document.getElementById('apple-pay-button')
             if (btn) {
                 btn.style.display = 'inline-block'
+                btn.addEventListener("click", handleApplePayClick)
             }
         } else {
             console.log('[ExpressCheckout] Apple Pay not available')
         }
     }, [])
+
+    // we can get the entire form through method as arg
+    const handleApplePayClick = () => {
+        console.log("Apple Pay button clicked");
+
+        if (!window.ApplePaySession) {
+            return;
+        }
+
+        applePayEventHandler();
+    }
 
     return (
         <div style={{ padding: '10px' }}>
