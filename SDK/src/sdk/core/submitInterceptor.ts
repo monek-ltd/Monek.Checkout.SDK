@@ -8,6 +8,7 @@ import { normalisePayment } from '../core/pay/normalise';
 import { performRedirect, attachHidden } from '../core/utils/redirect';
 import { pay } from '../core/pay/pay';
 import { runCompletionHook } from './utils/runCompletionHook';
+import { WsClient } from './utils/ws'
 
 export function interceptFormSubmit(
     form: HTMLFormElement,
@@ -35,12 +36,24 @@ export function interceptFormSubmit(
             disable: () => submitButtons.forEach(b => b.disabled = true),
         } as CompletionHelpers;
 
+        let ws: WsClient | null = null;
+
         try {
             helpers.disable();
             const completionOptions = component.getCompletionOptions();
 
             const sessionId = component.getSessionId();
             if (!sessionId) throw new Error('Missing SessionID');
+
+            // --- open WebSocket tied to this session ---
+            // Example URL shape; include any auth/token as needed
+            ws = new WsClient(`wss://5pqu90u40l.execute-api.eu-west-2.amazonaws.com/v1?sessionId=${encodeURIComponent(sessionId)}`);
+            try {
+                await ws.open();
+            } catch {
+                // If socket fails, we still proceed with timeouts/fallbacks
+                console.warn('[WS] failed to connect; proceeding with timeouts only');
+            }
 
             // 1) tokenise (iframe → token endpoint)
             const cardTokenId = await component.requestToken();
@@ -53,7 +66,9 @@ export function interceptFormSubmit(
             await performThreeDSMethodInvocation(
                 threeDS.threeDSRequest.methodUrl,
                 threeDS.threeDSRequest.methodData,
-                10000
+                10000,
+                ws,
+                sessionId
             );
 
             // 4) Call 3DS Authentication
@@ -72,7 +87,6 @@ export function interceptFormSubmit(
 
             // 4a) If challenge required, run challenge flow
             if(authenticationResult.result === 'challenge') {
-                const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
                 const display = component.getChallengeOptions().display ?? 'popup';
                 const size = component.getChallengeOptions().size ?? 'medium';
 
@@ -80,9 +94,25 @@ export function interceptFormSubmit(
                     acsUrl: authenticationResult.challenge?.acsUrl ?? '',
                     creq:   authenticationResult.challenge?.cReq ?? '',
 
+                    // Replace fake poller with WS+timeout
                     waitForResult: async () => {
-                        await sleep(60_000);             // fake poller
-                        return { status: 'mock-complete' };
+                        // race: websocket event OR manual timeout if ws not available
+                        const TIMEOUT_MS = 120_000; // e.g. 2 minutes
+                        if (!ws) {
+                            // fallback if socket didn’t open
+                            await new Promise(r => setTimeout(r, TIMEOUT_MS));
+                            return { status: 'timeout' as const };
+                        }
+                        try {
+                            const ev = await ws.waitFor<{ type: string; sessionId: string; status: string; data?: any }>(
+                                '3ds.challenge.result',
+                                m => m.sessionId === sessionId,
+                                TIMEOUT_MS
+                            );
+                            return { status: ev.status, data: ev.data };
+                        } catch {
+                            return { status: 'timeout' as const };
+                        }
                     },
 
                     display,
@@ -94,20 +124,25 @@ export function interceptFormSubmit(
                 console.log('[3DS] mock result:', result);
               
                 if (result.kind === 'closed') {
-                    if (completionOptions?.onCancel) {
-                        await runCompletionHook(completionOptions?.onCancel, { sessionId, cardTokenId, auth: authenticationResult, payment: null }, helpers);
+                    if (completionOptions?.onClosed || completionOptions?.onCancel) {
+                        await runCompletionHook(completionOptions?.onClosed ?? completionOptions?.onCancel, { sessionId, cardTokenId, auth: authenticationResult, payment: null }, helpers);
                     }
                     else {
                         throw new Error('Challenge closed by user');
                     }
                 }
-                if (result.kind === 'timeout') {
+                else if (result.kind === 'timeout') {
                     if (completionOptions?.onCancel) {
                         await runCompletionHook(completionOptions?.onCancel, { sessionId, cardTokenId, auth: authenticationResult, payment: null }, helpers);
                     }
                     else {
                         throw new Error('Challenge timed out');
                     }
+                }
+                else {
+                    // result.kind === 'polled' (our waitForResult returned a value)
+                    // we could validate result.data
+                    console.log(result.data);
                 }
             }
             // 4b) If not authenticated, do something

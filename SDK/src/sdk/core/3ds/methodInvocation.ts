@@ -1,9 +1,18 @@
-export async function performThreeDSMethodInvocation(methodUrl?: string | null, methodData?: string | null, timeoutMs = 10000): Promise<'skipped' | 'performed' | 'timeout'> {
+import { WsClient } from '../utils/ws';
+
+export async function performThreeDSMethodInvocation(
+    methodUrl?: string | null,
+    methodData?: string | null,
+    timeoutMs = 10000,
+    ws?: WsClient,
+    sessionId? : string
+): Promise<'skipped' | 'performed' | 'timeout'> {
+
     if (!methodUrl || !methodData) {
         return 'skipped';
     }
 
-    return new Promise((resolve) => {
+    return new Promise(async (resolve) => {
         const iframe = document.createElement('iframe');
         iframe.style.width = '0';
         iframe.style.height = '0';
@@ -22,7 +31,7 @@ export async function performThreeDSMethodInvocation(methodUrl?: string | null, 
         `);
         doc.close();
 
-        const t = window.setTimeout(() => {
+        const timeoutId = window.setTimeout(() => {
             cleanup();
             resolve('timeout');
         }, timeoutMs);
@@ -30,10 +39,31 @@ export async function performThreeDSMethodInvocation(methodUrl?: string | null, 
         // After timeout, assume method has had time to run (device info sent).
         function cleanup() {
             try { document.body.removeChild(iframe); } catch { }
-            window.clearTimeout(t);
         }
 
-        // Heuristic: give it half the timeout to run, then resolve 'performed' and clean up.
-        window.setTimeout(() => { cleanup(); resolve('performed'); }, Math.min(6000, timeoutMs));
+        if (ws && sessionId) {
+            try {
+                await ws.waitFor<{ type: string; sessionId: string; status: string }>(
+                    '3ds.method.result',
+                    m => m.sessionId === sessionId,
+                    timeoutMs
+                );
+
+                window.clearTimeout(timeoutId);
+                cleanup();
+                resolve('performed');
+
+                return;
+            } catch {
+                // resolve timeout
+            }
+        } else {
+            // Heuristic fallback: assume performed after half timeout
+            window.setTimeout(() => {
+                window.clearTimeout(timeoutId);
+                cleanup();
+                resolve('performed');
+            }, Math.min(6000, timeoutMs));
+        }
     });
 }
