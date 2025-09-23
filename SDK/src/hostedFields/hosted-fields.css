@@ -1,0 +1,142 @@
+:root {
+    /* layout & spacing */
+    --monek-container-padding: 12px;
+    --monek-gap: 12px;
+    --monek-text-align: left;
+    --monek-button-align: stretch;
+    /* core */
+    --monek-bg: #fff;
+    --monek-text: #111827;
+    --monek-font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    --monek-radius: 8px;
+    --monek-shadow: none;
+    /* inputs */
+    --monek-input-bg: #fff;
+    --monek-input-text: #111827;
+    --monek-input-border: #d1d5db;
+    --monek-input-radius: 8px;
+    --monek-input-height: 44px;
+    /* states */
+    --monek-input-focus: #2f6fed;
+    --monek-input-placeholder: #9ca3af;
+    --monek-input-disabled-bg: #f3f4f6;
+    --monek-input-disabled-text: #9ca3af;
+    --monek-input-error: #dc2626; 
+    /* type */
+    --monek-font-size: 14px;
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+html, body {
+    margin: 0;
+    overflow: hidden;
+    border-radius: var(--monek-radius);
+    background: var(--monek-bg);
+    box-shadow: var(--monek-shadow);
+    color: var(--monek-text);
+    font-family: var(--monek-font-family);
+    font-size: var(--monek-font-size);
+    -webkit-text-size-adjust: 100%; 
+    color-scheme: light dark; 
+}
+
+.hf-root {
+    display: grid;
+    gap: var(--monek-gap);
+    padding: var(--monek-container-padding);
+    text-align: var(--monek-text-align);
+}
+
+.hf-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--monek-gap);
+    min-width: 0;
+}
+
+    .hf-row > * {
+        min-width: 0;
+    }
+
+@media (max-width: 360px) {
+    .hf-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+input {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    height: var(--monek-input-height);
+    background: var(--monek-input-bg);
+    color: var(--monek-input-text);
+    border: 1px solid var(--monek-input-border);
+    border-radius: var(--monek-input-radius);
+    padding: 10px 12px;
+    outline: none;
+    font-variant-numeric: tabular-nums; 
+    letter-spacing: .01em;
+    caret-color: currentColor;
+    transition: border-color .15s ease, box-shadow .15s ease, background-color .2s ease, color .2s ease;
+}
+
+    input:focus-visible {
+        border-color: var(--monek-input-focus);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--monek-input-focus) 25%, transparent);
+    }
+
+@supports not (color-mix(in srgb, black 0%, white 0%)) {
+    input:focus-visible {
+        box-shadow: 0 0 0 3px rgba(47,111,237,.25);
+    }
+}
+
+input:invalid,
+input[aria-invalid="true"] {
+    border-color: var(--monek-input-error);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--monek-input-error) 25%, transparent);
+}
+
+input:disabled,
+input[readonly] {
+    background: var(--monek-input-disabled-bg);
+    color: var(--monek-input-disabled-text);
+    cursor: not-allowed;
+}
+
+input::placeholder {
+    color: var(--monek-input-placeholder);
+    opacity: 1;
+}
+
+input:-webkit-autofill {
+    -webkit-text-fill-color: var(--monek-input-text);
+    transition: background-color 9999s ease-out, color 9999s ease-out;
+}
+
+    input:-webkit-autofill,
+    input:-webkit-autofill:focus {
+        box-shadow: 0 0 0 1000px var(--monek-input-bg) inset !important;
+    }
+
+@media (prefers-contrast: more) {
+    input {
+        border-width: 2px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * {
+        transition: none !important;
+    }
+}
+
+@supports (-webkit-touch-callout: none) {
+    input {
+        font-size: max(16px, var(--monek-font-size));
+    }
+}
