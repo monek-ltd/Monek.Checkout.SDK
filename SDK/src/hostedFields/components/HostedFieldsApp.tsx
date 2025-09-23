@@ -1,12 +1,18 @@
 import React, { useEffect, useMemo, useRef, useCallback } from 'react'
 import { API } from '../../sdk/config';
-
+import '../hosted-fields.css';
 
 function getParams() { return new URLSearchParams(window.location.search); }
 function getParentOrigin() { return getParams().get('parentOrigin') || '*'; }
 function getSessionId() { return getParams().get('sessionId') || ''; }
 function getPublicKey() { return getParams().get('publicKey') || ''; }
 
+const applyThemeVars = (vars: Record<string, string>) => {
+    const root = document.documentElement;
+    for (const [k, v] of Object.entries(vars)) {
+        root.style.setProperty(k, String(v), 'important');
+    }
+};
 
 const HostedFieldsApp: React.FC = () => {
     const panRef = useRef<HTMLInputElement>(null);
@@ -63,10 +69,15 @@ const HostedFieldsApp: React.FC = () => {
         const onMessage = async (evt: MessageEvent) => {
             console.log('[iframe] got message:', { origin: evt.origin, data: evt.data });
             // Strict origin check unless we’re in dev fallback '*'
-            if (parentOrigin !== '*' && evt.origin !== parentOrigin) return;
+            if (parentOrigin !== '*' && evt.origin !== parentOrigin) {
+                console.log('[iframe] origin mismatch');
+                return;
+            }
 
-            const data = evt.data || {};
-            if (data.type === 'tokenise') {
+            const data = evt.data || {}; if (data.type === 'configure' && data.themeVars) {
+                applyThemeVars(data.themeVars as Record<string, string>);
+            }
+            else if (data.type === 'tokenise') {
                 try {
                     const cardToken = await tokenise();
                     window.parent.postMessage({ type: 'tokenised', cardToken }, parentOrigin);
@@ -121,14 +132,14 @@ const HostedFieldsApp: React.FC = () => {
     };
 
     return (
-        <div style={{ fontFamily: 'system-ui, sans-serif', display: 'grid', gap: 8 }}>
+        <div className="hf-root">
             <input ref={panRef} placeholder="Card Number" maxLength={23} onChange={handlePanInput} inputMode="numeric" />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <div className="hf-row">
                 <input ref={expRef} placeholder="MM/YY" maxLength={5} onChange={handleExpInput} inputMode="numeric" />
                 <input ref={cvcRef} placeholder="CVC" maxLength={4} onChange={handleCvcInput} inputMode="numeric" />
             </div>
         </div>
-    )
+    );
 }
 
 export default HostedFieldsApp
