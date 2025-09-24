@@ -1,7 +1,30 @@
-import { authorisedPayment } from "../core/authorisedPayment";
-import { validateMerchantDomain } from "../core/validateMerchantDomain";
+import { authorisedPayment } from "./authorisedPayment";
+import { validateMerchantDomain } from "./validateMerchantDomain";
+import { validateCallbacks } from '../../core/init/validate';
+import type { InitCallbacks } from '../../types/callbacks';
+import type { AmountInput } from '../../types/transaction-details'
+import { normalizeAmount, normalizeCountry } from '../utils/currencyHelper';
 
-export async function applePayEventHandler() {
+export async function applePayEventHandler(publicKey: string, options: Record<string, any>, sessionId: string) {
+
+    const APSession = (window as any).ApplePaySession;
+    if (!APSession) {
+        console.warn('[ApplePay] ApplePaySession is not available.');
+        return;
+    }
+
+    const callbacks = getCallbacks(options);
+
+    publicKey;
+
+    const amount =
+        callbacks?.getAmount
+            ? await callbacks.getAmount()
+            : { minor: 0, currency: '826' } as AmountInput;
+
+    const normalizedAmount = normalizeAmount(amount);
+    const normalizedCountry = normalizeCountry(options.countryCode ?? 'GB');
+
     const applePayRequest: ApplePayJS.ApplePayPaymentRequest = {
         merchantCapabilities: [
             'supports3DS',
@@ -13,18 +36,17 @@ export async function applePayEventHandler() {
             'masterCard',
             'amex'
         ],
-        // TODO get these from the session and form objects
-        countryCode: '',
-        currencyCode: '',
+        countryCode: normalizedCountry.alpha2,
+        currencyCode: normalizedAmount.currencyAlpha3,
         total: {
-            label: '',
+            label: options.label || 'Pay Now',
             type: 'final',
-            amount: '',
+            amount: normalizedAmount.major
         }
     };
 
     // Create ApplePaySession
-    const session = new ApplePaySession(14, applePayRequest);
+    const session = new APSession(14, applePayRequest);
 
     session.onvalidatemerchant = async (event:ApplePayJS.ApplePayValidateMerchantEvent) => {
         // Request a merchant session
@@ -34,7 +56,7 @@ export async function applePayEventHandler() {
             version: 'v2',
             parentUrl: document.referrer,
             // TODO get this from session obj
-            merchantRef: ''
+            merchantRef: '0000893'
         };
 
         console.log(`Payload for validating merchat URL is: ${JSON.stringify(payload)}`)
@@ -91,8 +113,7 @@ export async function applePayEventHandler() {
         if (paymentData.token) {
             const payload = {
                 token: paymentData.token,
-                // TODO get this from session obj
-                sessionId: ''
+                sessionId: sessionId,
             }
 
             // Forward token to Monek gateway for processing payment and return result to apple pay
@@ -124,4 +145,15 @@ export async function applePayEventHandler() {
     };
 
     session.begin();
+    
+}
+
+function getCallbacks(options: Record<string, any>): InitCallbacks | undefined {
+    validateCallbacks(options);
+    let callbacks = options.callbacks as InitCallbacks | undefined;
+
+    if (!callbacks) {
+        throw new Error('Callbacks not set. Provide them during instantiation.');
+    }
+    return callbacks;
 }

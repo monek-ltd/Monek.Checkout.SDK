@@ -2,7 +2,6 @@ import { API } from '../../config';
 import { CheckoutComponent } from '../../lib/CheckoutComponent';
 import type { PaymentResponse } from '../../types/payment-payloads';
 
-
 export async function pay(
     cardTokenId: string,
     sessionId: string,
@@ -40,14 +39,6 @@ async function buildPaymentRequest(
     ) {
 
     const callbacks = component.getCallbacks();
-    const amount =
-        callbacks?.getAmount
-            ? await callbacks.getAmount()
-            : undefined;
-
-    if (!amount) {
-        throw new Error('Missing amount: pass in or provide getAmount()');
-    }
 
     const cardholderInformation =
         callbacks?.getCardholderDetails

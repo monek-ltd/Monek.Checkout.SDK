@@ -123,6 +123,13 @@ label {
     padding: 10px !important;
 }
 
+#sdk-express-container {
+    border: 1px dashed var(--border) !important;
+    background: color-mix(in oklab, var(--panel) 92%, var(--text) 8%);
+    border-radius: 10px;
+    padding: 10px !important;
+}
+
 button {
     font-family: inherit;
     cursor: pointer;

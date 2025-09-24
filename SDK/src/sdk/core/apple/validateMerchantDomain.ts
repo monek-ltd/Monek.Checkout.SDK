@@ -1,4 +1,4 @@
-import { API } from '../config';
+import { API } from '../../config';
 
 export async function validateMerchantDomain(payload: any) {
     const url = `${API.appleSession}`;

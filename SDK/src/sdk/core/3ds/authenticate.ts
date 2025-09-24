@@ -1,6 +1,7 @@
 import { API } from '../../config';
 import { collectBrowserInformation } from '../utils/collectBrowserData';
 import { getWindowSize } from './challenge'
+import { normalizeAmount } from '../utils/currencyHelper';
 import type { ThreeDSAuthenticationPayload } from '../../types/three-ds-payloads';
 import type { InitCallbacks } from '../../types/callbacks';
 import type { ChallengeSize } from '../../types/challenge-window'
@@ -46,6 +47,8 @@ async function buildAuthenticationRequest(cardTokenId: string, sessionId: string
         throw new Error('Missing amount: pass in or provide getAmount()');
     }
 
+    const normalizedAmount = normalizeAmount(amount);
+
     const cardholderInformation =
       callbacks?.getCardholderDetails
         ? await callbacks.getCardholderDetails()
@@ -72,7 +75,10 @@ async function buildAuthenticationRequest(cardTokenId: string, sessionId: string
     return {
       sessionId,
       cardTokenId,
-      amount,                                  
+      amount: {
+          value: normalizedAmount.minor,
+          currencyCode: normalizedAmount.currencyNumeric
+      },                                  
       intent: 'purchase',
       cardholderInformation,                
       browserInformation: browserData,

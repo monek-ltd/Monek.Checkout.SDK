@@ -1,6 +1,5 @@
-// import { useContext } from 'react';
-import { API } from '../config';
-import { apiFetch } from "../lib/apiClient";
+import { API } from '../../config';
+import { apiFetch } from "../utils/apiClient";
 
 export async function authorisedPayment(payload: any) {
     const url = `${API.base}/payment/apple-pay`;
