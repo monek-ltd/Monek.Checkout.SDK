@@ -144,9 +144,9 @@
 
             // build the options (only place you repeat config)
             const buildOptions = (stylingPreset, isExpress) => ({
-              frameUrl: isExpress 
-                            ? 'https://dev-checkout-js.monek.com/src/expressCheckout/express-checkout.html' 
-                            : 'https://dev-checkout-js.monek.com/src/hostedFields/hosted-fields.html',
+              //frameUrl: isExpress 
+                           // ? 'https://dev-checkout-js.monek.com/src/expressCheckout/express-checkout.html' 
+                           // : 'https://dev-checkout-js.monek.com/src/hostedFields/hosted-fields.html',
               callbacks: {
                 getAmount: () => ({ minor: 10, currency: '826' }),
                 getDescription: () => 'goods',

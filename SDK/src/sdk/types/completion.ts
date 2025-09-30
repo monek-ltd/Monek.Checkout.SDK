@@ -11,6 +11,7 @@ export type CompletionOptions = {
     onSuccess?: CompletionHook;
     onError?: CompletionHook;
     onCancel?: CompletionHook;
+    onClosed?: CompletionHook;
 }
 
 export type CompletionHelpers = {
