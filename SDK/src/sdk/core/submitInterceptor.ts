@@ -9,6 +9,7 @@ import { performRedirect, attachHidden } from '../core/utils/redirect';
 import { pay } from '../core/pay/pay';
 import { runCompletionHook } from './utils/runCompletionHook';
 import { WsClient } from './utils/ws'
+import { WS } from '../config';
 
 export function interceptFormSubmit(
     form: HTMLFormElement,
@@ -47,7 +48,7 @@ export function interceptFormSubmit(
 
             // --- open WebSocket tied to this session ---
             // Example URL shape; include any auth/token as needed
-            ws = new WsClient(`wss://5pqu90u40l.execute-api.eu-west-2.amazonaws.com/v1?sessionId=${encodeURIComponent(sessionId)}`);
+            ws = new WsClient(`${WS.base}?sessionId=${encodeURIComponent(sessionId)}`);
             try {
                 await ws.open();
             } catch {
@@ -87,7 +88,6 @@ export function interceptFormSubmit(
 
             // 4a) If challenge required, run challenge flow
             if(authenticationResult.result === 'challenge') {
-                const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
                 const display = component.getChallengeOptions().display ?? 'popup';
                 const size = component.getChallengeOptions().size ?? 'medium';
 
