@@ -15,8 +15,6 @@ export async function applePayEventHandler(publicKey: string, options: Record<st
 
     const callbacks = getCallbacks(options);
 
-    publicKey;
-
     const amount =
         callbacks?.getAmount
             ? await callbacks.getAmount()
@@ -53,21 +51,18 @@ export async function applePayEventHandler(publicKey: string, options: Record<st
         const payload = {
             validationURL: event.validationURL,
             displayName: applePayRequest.total.label,
-            version: 'v2',
-            parentUrl: document.referrer,
-            // TODO get this from session obj
-            merchantRef: '0000893'
+            parentUrl: document.location.hostname,
         };
 
         console.log(`Payload for validating merchat URL is: ${JSON.stringify(payload)}`)
 
-        const merchantSession = await validateMerchantDomain(payload);
+        const merchantSession = await validateMerchantDomain(publicKey, payload);
 
         if (merchantSession?.status === '200') {
 
             console.log(`Merchant URL ${payload.validationURL} has been validated`);
 
-            session.completeMerchantValidation(merchantSession.session);
+            session.completeMerchantValidation(merchantSession);
         } else {
             console.error("Merchant could not be validated");
         }

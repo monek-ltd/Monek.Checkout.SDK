@@ -1,25 +1,27 @@
 import { API } from '../../config';
 
-export async function validateMerchantDomain(payload: any) {
+export async function validateMerchantDomain(apiKey: string, payload: any) {
     const url = `${API.appleSession}`;
    
     try {
         const response = await fetch(url, {
             method: "POST",
             headers: {
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
+                'x-api-key': apiKey,
             },
-            body: JSON.stringify({ payload }),
+            body: JSON.stringify(payload),
         });
 
-        let respJson = await response.json();
+        const text = await response.text();
+        let parsed: any = null;
+        try { parsed = text ? JSON.parse(text) : null; } catch {}
 
-        let merchantSession = {
+        return {
             status: response.status.toString(),
-            session: respJson
-        }
-
-        return merchantSession;
+            session: parsed,          
+            raw: text                   
+        };
 
     } catch (error) {
         console.error("Error during validating merchant: ", error);
