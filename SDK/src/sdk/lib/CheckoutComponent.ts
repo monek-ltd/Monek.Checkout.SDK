@@ -5,6 +5,7 @@ import type { CompletionOptions } from '../types/completion';
 import type { Intent, CardEntry, Order, SettlementType } from '../types/transaction-details';
 import type { ChallengeOptions } from '../types/challenge-window';
 import { normalizeStyling, toCssVars, type StylingOptions } from '../types/styling';
+import { createSession } from '../core/init/createSession';
 
 export class CheckoutComponent {
     private options: Record<string, any>;
@@ -129,7 +130,7 @@ export class CheckoutComponent {
 
         root.innerHTML = '';
 
-        this.sessionId = await (await import('../core/init/createSession')).createSession(this.publicKey);
+        this.sessionId = await createSession(this.publicKey);
 
         const url = new URL(this.frameUrl);
         url.searchParams.set('parentOrigin', this.parentOrigin);

@@ -25,7 +25,7 @@ export async function init(publicKey: string, options: Record<string, any> = {})
                 case 'checkout':
                     return new CheckoutComponent(publicKey, optionsWithApplePay);
                 case 'express':
-                    return new ExpressComponent(optionsWithApplePay);
+                    return new ExpressComponent(publicKey, optionsWithApplePay);
                 default:
                     throw new Error(`Unsupported component type: ${type}`);
             }

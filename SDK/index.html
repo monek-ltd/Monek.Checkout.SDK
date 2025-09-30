@@ -10,6 +10,8 @@
 
     <form id="test-form" action="/echo" method="POST">
 
+        <div id="sdk-express-container"></div>
+
         <!-- Cardholder Name -->
         <label>
             Name on Card
@@ -67,7 +69,7 @@
             <button type="button" id="btn-brand">Custom</button>
         </div>
 
-        <div id="sdk-container" style="border:1px dashed #ccc; padding:8px;" width="100%" height="120"></div>
+        <div id="sdk-container"></div>
 
         <br />
         <button type="submit">Pay</button>
@@ -86,7 +88,7 @@
             console.log('[parent] origin =', window.location.origin);
 
             // ====== init SDK ======
-            const PUBLIC_KEY = 'live_...'; // <-- set your dev key
+            const PUBLIC_KEY = 'test_73cd746315f242ce9785d2775fbd5164'; // <-- set your dev key
             if (typeof window.Monek !== 'function') {
                 console.error('Monek SDK not loaded');
                 return;
@@ -138,12 +140,15 @@
         
             // keep current instance here
             let checkout = null;
+            let express = null;
 
             // build the options (only place you repeat config)
-            const buildOptions = (stylingPreset) => ({
-              frameUrl: 'https://checkout-js.monek.com/src/hostedFields/hosted-fields.html',
+            const buildOptions = (stylingPreset, isExpress) => ({
+              frameUrl: isExpress 
+                            ? 'https://dev-checkout-js.monek.com/src/expressCheckout/express-checkout.html' 
+                            : 'https://dev-checkout-js.monek.com/src/hostedFields/hosted-fields.html',
               callbacks: {
-                getAmount: () => ({ value: 1000, currencyCode: '826' }),
+                getAmount: () => ({ minor: 10, currency: '826' }),
                 getDescription: () => 'goods',
                 getCardholderDetails: () => ({
                   name:  val('billingName'),
@@ -158,6 +163,7 @@
                   },
                 }),
               },
+              countryCode: '826',
               styling: stylingPreset,                    
               challenge: { display: 'popup', size: 'medium' },
               completion: {
@@ -175,16 +181,27 @@
 
             // mount with a given preset; destroys old instance first
             async function mountWithPreset(preset) {
+
               // clear container UI
               const container = document.querySelector('#sdk-container');
               container.innerHTML = '<div style="padding:8px;color:#666">Loading…</div>';
+
+              const expressContainer = document.querySelector('#sdk-express-container');
+              expressContainer.innerHTML = '<div style="padding:8px;color:#666">Loading…</div>';
 
               if (checkout && typeof checkout.destroy === 'function') {
                 try { checkout.destroy(); } catch {}
               }
 
-              checkout = sdk.createComponent('checkout', buildOptions(preset));
+              if (express && typeof express.destroy === 'function') {
+                try { express.destroy(); } catch {}
+              }
+
+              checkout = sdk.createComponent('checkout', buildOptions(preset, false));
               await checkout.mount('#sdk-container');
+
+              express = sdk.createComponent('express', buildOptions(preset, true));
+              await express.mount('#sdk-express-container');
             }
 
             // initial mount
