@@ -87,6 +87,7 @@ export function interceptFormSubmit(
 
             // 4a) If challenge required, run challenge flow
             if(authenticationResult.result === 'challenge') {
+                const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
                 const display = component.getChallengeOptions().display ?? 'popup';
                 const size = component.getChallengeOptions().size ?? 'medium';
 
@@ -94,7 +95,6 @@ export function interceptFormSubmit(
                     acsUrl: authenticationResult.challenge?.acsUrl ?? '',
                     creq:   authenticationResult.challenge?.cReq ?? '',
 
-                    // Replace fake poller with WS+timeout
                     waitForResult: async () => {
                         // race: websocket event OR manual timeout if ws not available
                         const TIMEOUT_MS = 120_000; // e.g. 2 minutes

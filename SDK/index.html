@@ -3,12 +3,14 @@
 <head>
     <meta charset="UTF-8" />
     <title>SDK Dev Dashboard</title>
+    <link rel="stylesheet" href="./index.css">
 </head>
 <body>
-    <h1>Monek Checkout SDK — Dev Dashboard</h1>
+    <h1>Monek Checkout SDK</h1>
 
-    <h2>Test Checkout (SDK-mounted)</h2>
     <form id="test-form" action="/echo" method="POST">
+
+        <div id="sdk-express-container"></div>
 
         <!-- Cardholder Name -->
         <label>
@@ -57,19 +59,23 @@
             <input type="text" name="billingCountry" placeholder="826" required />
         </label>
 
-        <div id="sdk-container" style="border:1px dashed #ccc; padding:8px;" width="100%" height="120"></div>
+        <br />
+        <hr />
+        <br />
+
+        <div class="toolbar">
+            <button type="button" id="btn-light">Light</button>
+            <button type="button" id="btn-dark">Dark</button>
+            <button type="button" id="btn-brand">Custom</button>
+        </div>
+
+        <div id="sdk-container"></div>
+
+        <br />
         <button type="submit">Pay</button>
     </form>
 
     <hr />
-
-    <h2>Hosted Fields (raw iframe preview)</h2>
-    <iframe id="hf" src="/src/hostedFields/hosted-fields.html"
-            width="100%" height="120" style="border:1px solid #eee"></iframe>
-
-    <h2>Express Checkout</h2>
-    <iframe id="express" src="/src/expressCheckout/express-checkout.html"
-            width="100%" height="80" style="border:1px solid #eee"></iframe>
 
     <!-- The built SDK (IIFE). -->
     <script src="/monek-checkout.iife.js"></script>
@@ -82,7 +88,7 @@
             console.log('[parent] origin =', window.location.origin);
 
             // ====== init SDK ======
-            const PUBLIC_KEY = 'live_...'; // <-- set your dev key
+            const PUBLIC_KEY = 'test_73cd746315f242ce9785d2775fbd5164'; // <-- set your dev key
             if (typeof window.Monek !== 'function') {
                 console.error('Monek SDK not loaded');
                 return;
@@ -91,68 +97,130 @@
             
             const formEl = document.getElementById('test-form');
 
-            // ====== mount checkout via SDK ======
-            const checkout = sdk.createComponent('checkout', {
-                frameUrl: 'https://checkout-js.monek.com/src/hostedFields/hosted-fields.html', //Change to dev for testing
-                callbacks: {
-                  getAmount: () => ({ value: 1000, currencyCode: '826' }),
-                  getCardholderDetails: () => {
-                    const fd = new FormData(formEl);
-                    console.log("Fetching form data.")
+            const STYLING_LIGHT = { theme: 'light' };
+            const STYLING_DARK = { theme: 'dark' };
+            const STYLING_BRAND = {
+              theme: 'light', // start from light preset, then blast over it
 
-                    return {
-                      name: fd.get('billingName'),
-                      email: fd.get('billingEmail'),
-                      HomePhone: fd.get('billingPhone'),
-                      billingAddress: {
-                        addressLine1: fd.get('billingAddress1'),
-                        addressLine2: fd.get('billingAddress2'),
-                        city: fd.get('billingCity'),
-                        postcode: fd.get('billingPostcode'),
-                        country: fd.get('billingCountry'),
-                      }
-                    };
+              layout: {
+                containerPadding: ['28px','32px','28px','32px'], // top right bottom left
+                textAlign: 'center',
+                buttonAlign: 'right',
+              },
+
+              core: {
+                backgroundColor: '#230046',                    // deep purple
+                textColor: '#F1FF52',                          // acid yellow
+                fontFamily: 'Impact, "Arial Black", system-ui, sans-serif',
+                borderRadius: 28,                              // number → px
+              },
+
+              inputs: {
+                inputBackgroundColor: '#FFF5C7',               // pale lemon
+                inputTextColor: '#230046',                     // match page bg for contrast
+                inputBorderColor: '#FF00AA',                   // hot magenta
+                inputBorderRadius: 24,                         // number → px
+              },
+
+              typography: {
+                fontSize: 20,                                  // nice and chunky
+              },
+
+              // Power-user overrides (consumed by your iframe CSS)
+              cssVars: {
+                '--monek-input-focus': '#00E0FF',              // cyan focus ring
+                '--monek-input-placeholder': '#FF00AA',        // magenta placeholder
+                '--monek-input-height': '6px',                // taller tap target
+                '--monek-shadow': '0 0 0 4px rgba(255,0,170,.15), 0 16px 48px rgba(35,0,70,.45)',
+              },
+            };
+
+            const val = (name) => String(new FormData(formEl).get(name) ?? '');
+
+        
+            // keep current instance here
+            let checkout = null;
+            let express = null;
+
+            // build the options (only place you repeat config)
+            const buildOptions = (stylingPreset, isExpress) => ({
+              frameUrl: isExpress 
+                            ? 'https://dev-checkout-js.monek.com/src/expressCheckout/express-checkout.html' 
+                            : 'https://dev-checkout-js.monek.com/src/hostedFields/hosted-fields.html',
+              callbacks: {
+                getAmount: () => ({ minor: 10, currency: '826' }),
+                getDescription: () => 'goods',
+                getCardholderDetails: () => ({
+                  name:  val('billingName'),
+                  email: val('billingEmail'),
+                  HomePhone: val('billingPhone'),
+                  billingAddress: {
+                    addressLine1: val('billingAddress1'),
+                    addressLine2: val('billingAddress2'),
+                    city:         val('billingCity'),
+                    postcode:     val('billingPostcode'),
+                    country:      val('billingCountry'),
                   },
-                    getDescription: () => 'goods',
+                }),
+              },
+              countryCode: '826',
+              styling: stylingPreset,                    
+              challenge: { display: 'popup', size: 'medium' },
+              completion: {
+                mode: 'client',
+                onSuccess: (ctx, { redirect }) => redirect(`/thank-you?s=${encodeURIComponent(ctx.sessionId)}`),
+                onError:   (ctx, { reenable }) => { reenable(); alert(ctx?.payment?.Message || 'Payment failed'); },
+                onCancel:  (ctx, { reenable }) => reenable(),
+              },
+              intent: 'Purchase',
+              order: 'Checkout',
+              settlementType: 'Auto',
+              storeCardDetails: false,
+              cardEntry: 'ECommerce',
+            });
 
-                    challenge: { display: 'popup', size: 'medium' },
+            // mount with a given preset; destroys old instance first
+            async function mountWithPreset(preset) {
 
-                    completion: {
-                        mode: 'client', // 'client' = SDK calls /payment; 'form' = merchant server will
+              // clear container UI
+              const container = document.querySelector('#sdk-container');
+              container.innerHTML = '<div style="padding:8px;color:#666">Loading…</div>';
 
-                        // onSuccess can be:
-                        //   1) redirect object,
-                        //   2) function(ctx, helpers) { ...; return string|Redirect; } or do nothing,
-                        //   3) undefined (SDK falls back to posting the form)
-                        onSuccess: (ctx, { redirect }) => {
-                            console.log('[completion] success ctx:', ctx);
-                            // Return a URL string for convenience redirect:
-                            return `/thank-you?s=${encodeURIComponent(ctx.sessionId)}`;
-                        },
+              const expressContainer = document.querySelector('#sdk-express-container');
+              expressContainer.innerHTML = '<div style="padding:8px;color:#666">Loading…</div>';
 
-                        // onError can re-enable UI, show message, or redirect somewhere:
-                        onError: (ctx, { reenable }) => {
-                            console.warn('[completion] error ctx:', ctx);
-                            reenable();
-                            alert(ctx?.payment?.Message || 'Payment failed. Please try another card.');
-                            // or: return { url:'/payment-error', method:'GET', parameters:{ s: ctx.sessionId } };
-                        },
+              if (checkout && typeof checkout.destroy === 'function') {
+                try { checkout.destroy(); } catch {}
+              }
 
-                        // onCancel (challenge closed by user) → keep shopper on page
-                        onCancel: (ctx, { reenable }) => {
-                            console.log('[completion] cancel ctx:', ctx);
-                            reenable();
-                        },
-                    },
-                    intent: 'Purchase',
-                    order: 'Checkout',
-                    settlementType: 'Auto',
-                    storeCardDetails: false,
-                    cardEntry: 'Ecommerce',
-                }
-              });
+              if (express && typeof express.destroy === 'function') {
+                try { express.destroy(); } catch {}
+              }
 
-            checkout.mount('#sdk-container'); 
+              checkout = sdk.createComponent('checkout', buildOptions(preset, false));
+              await checkout.mount('#sdk-container');
+
+              express = sdk.createComponent('express', buildOptions(preset, true));
+              await express.mount('#sdk-express-container');
+            }
+
+            // initial mount
+            await mountWithPreset(STYLING_LIGHT);
+
+            // ====== Wire the toolbar buttons (live switch, no remount) ======
+            document.getElementById('btn-light').addEventListener('click', () => 
+            {
+                document.documentElement.setAttribute('data-theme','light');
+                mountWithPreset(STYLING_LIGHT);
+            });
+            document.getElementById('btn-dark').addEventListener('click',  () => {
+                document.documentElement.setAttribute('data-theme','dark');
+                mountWithPreset(STYLING_DARK);
+            });
+            document.getElementById('btn-brand').addEventListener('click', () => {
+                document.documentElement.setAttribute('data-theme','light');
+                mountWithPreset(STYLING_BRAND);
+            });
         })();
     </script>
 </body>

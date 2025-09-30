@@ -4,6 +4,8 @@ import type { InitCallbacks } from '../types/callbacks';
 import type { CompletionOptions } from '../types/completion';
 import type { Intent, CardEntry, Order, SettlementType } from '../types/transaction-details';
 import type { ChallengeOptions } from '../types/challenge-window';
+import { normalizeStyling, toCssVars, type StylingOptions } from '../types/styling';
+import { createSession } from '../core/init/createSession';
 
 export class CheckoutComponent {
     private options: Record<string, any>;
@@ -16,7 +18,8 @@ export class CheckoutComponent {
     private sessionId?: string; 
     private onError?: (e: { code: string; message: string }) => void;
     private unbindSubmit?: () => void; 
-    private containerEl?: Element; 
+    private containerEl?: Element;
+    private themeVars?: Record<string, string>;
 
     constructor(publicKey: string, options: Record<string, any>, onReady?: () => void, onError?: (e: { code: string; message: string }) => void) {
         this.publicKey = publicKey;
@@ -35,6 +38,8 @@ export class CheckoutComponent {
         if (this.options?.completion?.mode === 'client' && !this.options?.completion?.onSuccess) {
             throw new Error('Client-side completion requires an onSuccess callback.');
         }
+
+        this.themeVars = toCssVars(normalizeStyling(this.options.styling as StylingOptions));
     }
 
     public getSettlementType(): SettlementType {
@@ -97,6 +102,12 @@ export class CheckoutComponent {
         const data = evt.data || {};
 
         if (data?.type === 'ready') {
+            if (this.themeVars && this.iframe?.contentWindow) {
+                this.iframe.contentWindow.postMessage(
+                    { type: 'configure', themeVars: this.themeVars },
+                    this.targetOrigin
+                );
+            }
             this.onReady?.();
         }
 
@@ -119,7 +130,7 @@ export class CheckoutComponent {
 
         root.innerHTML = '';
 
-        this.sessionId = await (await import('../core/init/createSession')).createSession(this.publicKey);
+        this.sessionId = await createSession(this.publicKey);
 
         const url = new URL(this.frameUrl);
         url.searchParams.set('parentOrigin', this.parentOrigin);
@@ -135,6 +146,15 @@ export class CheckoutComponent {
 
         root.appendChild(iframe);
         this.iframe = iframe;
+
+        iframe.addEventListener('load', () => {
+            if (this.themeVars) {
+                this.iframe!.contentWindow!.postMessage(
+                    { type: 'configure', themeVars: this.themeVars },
+                    this.targetOrigin
+                );
+            }
+        });
 
         iframe!.contentWindow!.postMessage({ type: 'PING_FROM_PARENT' }, '*');
 

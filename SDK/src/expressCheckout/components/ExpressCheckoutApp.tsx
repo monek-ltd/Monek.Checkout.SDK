@@ -1,4 +1,7 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useMemo, useCallback } from 'react'
+
+function getParams() { return new URLSearchParams(window.location.search); }
+function getParentOrigin() { return getParams().get('parentOrigin') || '*'; }
 
 declare module 'react' {
     namespace JSX {
@@ -24,20 +27,34 @@ declare global {
 }
 
 const ExpressCheckoutApp: React.FC = () => {
+    const parentOrigin = useMemo(getParentOrigin, []);
+
     useEffect(() => {
         if (window.ApplePaySession && window.ApplePaySession.canMakePayments()) {
             console.log('[ExpressCheckout] Apple Pay is available')
             const btn = document.getElementById('apple-pay-button')
             if (btn) {
                 btn.style.display = 'inline-block'
+                btn.addEventListener("click", handleApplePayClick)
             }
         } else {
             console.log('[ExpressCheckout] Apple Pay not available')
         }
     }, [])
 
+    const handleApplePayClick = useCallback(() => {
+        window.parent.postMessage({ type: 'ap-click' }, parentOrigin);
+    }, [parentOrigin]);
+
     return (
-        <div style={{ padding: '10px' }}>
+        <div style={{
+            height: '100%',                 
+            display: 'flex',
+            alignItems: 'center',           
+            justifyContent: 'center',
+            padding: 0,
+            paddingTop: 10,
+        }}>
             <apple-pay-button
                 id="apple-pay-button"
                 buttonstyle="black"
@@ -46,8 +63,8 @@ const ExpressCheckoutApp: React.FC = () => {
                 style={{
                     display: 'none',
                     WebkitAppearance: 'none',
-                    width: '180px',
-                    height: '40px',
+                    width: '225px',
+                    height: '55px',
                     borderRadius: '6px',
                     padding: 0,
                 }}
