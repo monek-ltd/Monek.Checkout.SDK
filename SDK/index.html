@@ -88,7 +88,7 @@
             console.log('[parent] origin =', window.location.origin);
 
             // ====== init SDK ======
-            const PUBLIC_KEY = 'live_...'; // <-- set your dev key
+            const PUBLIC_KEY = 'test_73cd746315f242ce9785d2775fbd5164'; // <-- set your dev key
             if (typeof window.Monek !== 'function') {
                 console.error('Monek SDK not loaded');
                 return;
@@ -145,8 +145,8 @@
             // build the options (only place you repeat config)
             const buildOptions = (stylingPreset, isExpress) => ({
               frameUrl: isExpress 
-                            ? 'https://checkout-js.monek.com/src/expressCheckout/express-checkout.html' 
-                            : 'https://checkout-js.monek.com/src/hostedFields/hosted-fields.html',
+                            ? 'https://dev-checkout-js.monek.com/src/expressCheckout/express-checkout.html' 
+                            : 'https://dev-checkout-js.monek.com/src/hostedFields/hosted-fields.html',
               callbacks: {
                 getAmount: () => ({ minor: 10, currency: '826' }),
                 getDescription: () => 'goods',
