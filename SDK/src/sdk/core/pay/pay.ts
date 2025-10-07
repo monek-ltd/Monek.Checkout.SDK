@@ -75,8 +75,8 @@ async function buildPaymentRequest(
         intent: component.getIntent(),
         order: component.getOrder(),
         card: {
-          cardExpiryMonth: expiryMonth,                   
-          cardExpiryYear: expiryYear,
+          expiryMonth: expiryMonth,                   
+          expiryYear: expiryYear,
         },
         
         cardHolder: {
