@@ -61,7 +61,7 @@ async function buildPaymentRequest(
     const expiryMonth = expiry.split('/')[0];
     const expiryYear = expiry.split('/')[1];
 
-    const addr = projectBillingAddress(info.billingAddress);
+    const addr = projectBillingAddress(cardholderInformation.billingAddress);
 
     const ip = await component.getSourceIp();
     const url = (typeof window !== 'undefined' && window?.location?.href) ? window.location.href : undefined;
