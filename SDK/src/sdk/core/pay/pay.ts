@@ -61,6 +61,8 @@ async function buildPaymentRequest(
     const expiryMonth = expiry.split('/')[0];
     const expiryYear = expiry.split('/')[1];
 
+    const addr = cardholderInformation.billingAddress;
+
     const ip = await component.getSourceIp();
     const url = (typeof window !== 'undefined' && window?.location?.href) ? window.location.href : undefined;
     const source = (typeof navigator !== 'undefined' && navigator?.userAgent)
@@ -75,14 +77,18 @@ async function buildPaymentRequest(
         intent: component.getIntent(),
         order: component.getOrder(),
         card: {
-          cardExpiryMonth: expiryMonth,                   
-          cardExpiryYear: expiryYear,
+          expiryMonth: expiryMonth,                   
+          expiryYear: expiryYear,
         },
         
         cardHolder: {
           name: cardholderInformation.name,
           emailAddress: cardholderInformation.email,
           phoneNumber: cardholderInformation.phone,
+          ...(addr?.addressLine1 ? { billingStreet1: addr.addressLine1 } : {}),
+          ...(addr?.addressLine2 ? { billingStreet2: addr.addressLine2 } : {}),
+          ...(addr?.city ? { billingCity: addr.city } : {}),
+          ...(addr?.postcode ? { billingPostcode: addr.postcode } : {}),
         },
         storeCardDetails: component.getStoreCardDetails(),
         idempotencyToken: crypto.randomUUID(),
@@ -94,4 +100,3 @@ async function buildPaymentRequest(
         channel: component.getChannel?.() ?? 'Web',
       };
 }
-
