@@ -108,7 +108,7 @@ type BillingAddressPatch = {
   billingCity?: string;
   billingStateProv?: string;
   billingPostcode?: string;
-  countryCode?: string; // if you want to use this at top-level later
+  countryCode?: string; 
 };
 
 function projectBillingAddress(addr?: {
