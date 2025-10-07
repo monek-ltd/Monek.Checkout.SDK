@@ -61,6 +61,7 @@ async function buildPaymentRequest(
     const expiryMonth = expiry.split('/')[0];
     const expiryYear = expiry.split('/')[1];
 
+    const ip = await component.getSourceIp();
     const url = (typeof window !== 'undefined' && window?.location?.href) ? window.location.href : undefined;
     const source = (typeof navigator !== 'undefined' && navigator?.userAgent)
     ? `web:${navigator.userAgent}`
@@ -86,7 +87,7 @@ async function buildPaymentRequest(
         storeCardDetails: component.getStoreCardDetails(),
         idempotencyToken: crypto.randomUUID(),
         source,
-        sourceIpAddress: component.getSourceIp(),
+        ...(ip ? { sourceIpAddress: ip } : {}),
         ...(url ? { url } : {}),
         basketDescription: description,
         validityId: component.getValidityId?.() ?? undefined,
