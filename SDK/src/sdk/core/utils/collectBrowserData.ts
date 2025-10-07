@@ -1,4 +1,4 @@
-export async function collectBrowserInformation(): Promise<{
+export async function collectBrowserInformation(ip: string): Promise<{
     acceptHeader: string;
     ipAddress?: string;
     isJavascriptEnabled: boolean;
@@ -11,16 +11,7 @@ export async function collectBrowserInformation(): Promise<{
     userAgent: string;
   }> {
     const tzHours = -new Date().getTimezoneOffset() / 60;
-    let ip: string | undefined;
-
-    await fetch("https://api.ipify.org/?format=json")
-                .then(response => response.json())
-                .then(data => {
-                    ip = data.ip;
-                })
-                .catch(error => {
-                    console.error("Error fetching IP address:", error);
-                });
+    
     return {
       acceptHeader: '*/*',
       ipAddress: ip,

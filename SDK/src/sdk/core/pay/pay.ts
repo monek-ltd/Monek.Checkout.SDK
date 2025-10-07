@@ -2,7 +2,6 @@ import { API } from '../../config';
 import { CheckoutComponent } from '../../lib/CheckoutComponent';
 import type { PaymentResponse } from '../../types/payment-payloads';
 
-
 export async function pay(
     cardTokenId: string,
     sessionId: string,
@@ -40,14 +39,6 @@ async function buildPaymentRequest(
     ) {
 
     const callbacks = component.getCallbacks();
-    const amount =
-        callbacks?.getAmount
-            ? await callbacks.getAmount()
-            : undefined;
-
-    if (!amount) {
-        throw new Error('Missing amount: pass in or provide getAmount()');
-    }
 
     const cardholderInformation =
         callbacks?.getCardholderDetails
@@ -70,22 +61,36 @@ async function buildPaymentRequest(
     const expiryMonth = expiry.split('/')[0];
     const expiryYear = expiry.split('/')[1];
 
+    const url = (typeof window !== 'undefined' && window?.location?.href) ? window.location.href : undefined;
+    const source = (typeof navigator !== 'undefined' && navigator?.userAgent)
+    ? `web:${navigator.userAgent}`
+    : 'EmbeddedCheckout';
+
     return {
         sessionId,
-        cardTokenId,
+        tokenId: cardTokenId,                            
         settlementType: component.getSettlementType(),
         cardEntry: component.getCardEntry(),
         intent: component.getIntent(),
         order: component.getOrder(),
         card: {
-            cardExpiryMonth: expiryMonth,
-            cardExpiryYear: expiryYear,
+          cardExpiryMonth: expiryMonth,                   
+          cardExpiryYear: expiryYear,
         },
-        cardholder: {
-            name: cardholderInformation.name,
-            emailAddress: cardholderInformation.email,
-            phoneNumber: cardholderInformation.phone,
+        
+        cardHolder: {
+          name: cardholderInformation.name,
+          emailAddress: cardholderInformation.email,
+          phoneNumber: cardholderInformation.phone,
         },
-        storeCardDetails: component.getStoreCardDetails()
-    };
+        storeCardDetails: component.getStoreCardDetails(),
+        idempotencyToken: crypto.randomUUID(),
+        source,
+        sourceIpAddress: component.getSourceIp(),
+        ...(url ? { url } : {}),
+        basketDescription: description,
+        validityId: component.getValidityId?.() ?? undefined,
+        channel: component.getChannel?.() ?? 'Web',
+      };
 }
+
