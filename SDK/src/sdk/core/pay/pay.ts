@@ -102,6 +102,15 @@ async function buildPaymentRequest(
       };
 }
 
+type BillingAddressPatch = {
+  billingStreet1?: string;
+  billingStreet2?: string;
+  billingCity?: string;
+  billingStateProv?: string;
+  billingPostcode?: string;
+  countryCode?: string; // if you want to use this at top-level later
+};
+
 function projectBillingAddress(addr?: {
   addressLine1?: string;
   addressLine2?: string;
@@ -110,7 +119,7 @@ function projectBillingAddress(addr?: {
   country?: string;
   state?: string;
   region?: string;
-}) {
+}): BillingAddressPatch {
   if (!addr) return {};
   const stateProv = (addr as any).state ?? (addr as any).region;
   return {
