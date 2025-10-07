@@ -94,6 +94,14 @@ export class CheckoutComponent {
         return this.publicKey;
     }
 
+    public getValidityId(): string | undefined {
+        return this.options.validityId as (string | undefined);
+    }
+
+    public getChannel(): string {
+        return (this.options.channel as string | undefined) ?? 'Web';
+    }
+
     private handleMessage = (evt: MessageEvent) => {
         if (evt.origin !== this.targetOrigin) {
             return;
@@ -259,7 +267,6 @@ export class CheckoutComponent {
             }, 20000);
 
             window.addEventListener('message', onMsg);
-            // ask iframe to tokenise (iframe should validate evt.origin === parentOrigin)
 
             console.log('DEBUG - Token request Complete');
         });

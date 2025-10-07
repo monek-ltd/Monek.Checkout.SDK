@@ -153,6 +153,7 @@ export function interceptFormSubmit(
                 else {
                     throw new Error(`Authentication error: ${authenticationResult.result}`);
                 }
+                return;
             }
 
             // 5) either pay or attach & submit
