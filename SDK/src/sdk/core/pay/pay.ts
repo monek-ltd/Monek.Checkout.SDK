@@ -61,6 +61,8 @@ async function buildPaymentRequest(
     const expiryMonth = expiry.split('/')[0];
     const expiryYear = expiry.split('/')[1];
 
+    const addr = projectBillingAddress(info.billingAddress);
+
     const ip = await component.getSourceIp();
     const url = (typeof window !== 'undefined' && window?.location?.href) ? window.location.href : undefined;
     const source = (typeof navigator !== 'undefined' && navigator?.userAgent)
@@ -83,6 +85,11 @@ async function buildPaymentRequest(
           name: cardholderInformation.name,
           emailAddress: cardholderInformation.email,
           phoneNumber: cardholderInformation.phone,
+          ...(addr.billingStreet1 ? { billingStreet1: addr.billingStreet1 } : {}),
+          ...(addr.billingStreet2 ? { billingStreet2: addr.billingStreet2 } : {}),
+          ...(addr.billingCity ? { billingCity: addr.billingCity } : {}),
+          ...(addr.billingStateProv ? { billingStateProv: addr.billingStateProv } : {}),
+          ...(addr.billingPostcode ? { billingPostcode: addr.billingPostcode } : {}),
         },
         storeCardDetails: component.getStoreCardDetails(),
         idempotencyToken: crypto.randomUUID(),
@@ -95,3 +102,23 @@ async function buildPaymentRequest(
       };
 }
 
+function projectBillingAddress(addr?: {
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  postcode?: string;
+  country?: string;
+  state?: string;
+  region?: string;
+}) {
+  if (!addr) return {};
+  const stateProv = (addr as any).state ?? (addr as any).region;
+  return {
+    ...(addr.addressLine1 ? { billingStreet1: addr.addressLine1 } : {}),
+    ...(addr.addressLine2 ? { billingStreet2: addr.addressLine2 } : {}),
+    ...(addr.city ? { billingCity: addr.city } : {}),
+    ...(stateProv ? { billingStateProv: stateProv } : {}),
+    ...(addr.postcode ? { billingPostcode: addr.postcode } : {}),
+    countryCode: addr.country,
+  };
+}
