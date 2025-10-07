@@ -72,6 +72,7 @@ export function interceptFormSubmit(
                 sessionId
             );
 
+
             // 4) Call 3DS Authentication
             const authenticationResult = await authenticate(
                 component.getPublicKey(), 
@@ -79,7 +80,8 @@ export function interceptFormSubmit(
                 sessionId, 
                 component.getCallbacks()!, 
                 expiry, 
-                component.getChallengeOptions().size ?? 'medium')
+                component.getChallengeOptions().size ?? 'medium',
+                await component.getSourceIp())
 
             if (authenticationResult.errorMessage) {
                 throw new Error(`3DS authentication error: ${authenticationResult.errorMessage}`);

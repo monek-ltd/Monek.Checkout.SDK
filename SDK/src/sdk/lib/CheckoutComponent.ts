@@ -1,11 +1,12 @@
 import { interceptFormSubmit } from '../core/submitInterceptor';
 import { validateCallbacks } from '../core/init/validate';
+import { normalizeStyling, toCssVars, type StylingOptions } from '../types/styling';
+import { createSession } from '../core/init/createSession';
+import { getClientIpViaIpify } from '../core/utils/getClientIp';
 import type { InitCallbacks } from '../types/callbacks';
 import type { CompletionOptions } from '../types/completion';
 import type { Intent, CardEntry, Order, SettlementType } from '../types/transaction-details';
 import type { ChallengeOptions } from '../types/challenge-window';
-import { normalizeStyling, toCssVars, type StylingOptions } from '../types/styling';
-import { createSession } from '../core/init/createSession';
 
 export class CheckoutComponent {
     private options: Record<string, any>;
@@ -20,6 +21,7 @@ export class CheckoutComponent {
     private unbindSubmit?: () => void; 
     private containerEl?: Element;
     private themeVars?: Record<string, string>;
+    private sourceIp: Promise<string | undefined>;
 
     constructor(publicKey: string, options: Record<string, any>, onReady?: () => void, onError?: (e: { code: string; message: string }) => void) {
         this.publicKey = publicKey;
@@ -40,6 +42,8 @@ export class CheckoutComponent {
         }
 
         this.themeVars = toCssVars(normalizeStyling(this.options.styling as StylingOptions));
+
+        this.sourceIp = getClientIpViaIpify();
     }
 
     public getSettlementType(): SettlementType {
@@ -100,6 +104,10 @@ export class CheckoutComponent {
 
     public getChannel(): string {
         return (this.options.channel as string | undefined) ?? 'Web';
+    }
+
+    public getSourceIp(): Promise<string | undefined> {
+        return this.sourceIp;
     }
 
     private handleMessage = (evt: MessageEvent) => {

@@ -6,7 +6,7 @@ import type { ThreeDSAuthenticationPayload } from '../../types/three-ds-payloads
 import type { InitCallbacks } from '../../types/callbacks';
 import type { ChallengeSize } from '../../types/challenge-window'
 
-export async function authenticate(apiKey: string, cardTokenId: string, sessionId: string, callbacks: InitCallbacks, expiry: string, size: ChallengeSize): Promise<ThreeDSAuthenticationPayload> {
+export async function authenticate(apiKey: string, cardTokenId: string, sessionId: string, callbacks: InitCallbacks, expiry: string, size: ChallengeSize, ip: string | undefined): Promise<ThreeDSAuthenticationPayload> {
     
     const res = await fetch(`${API.base}/3ds/authenticate`, {
         method: 'POST',
@@ -14,7 +14,7 @@ export async function authenticate(apiKey: string, cardTokenId: string, sessionI
             'Content-Type': 'application/json',
             'x-api-key': apiKey,
         },
-        body: JSON.stringify(await buildAuthenticationRequest(cardTokenId, sessionId, callbacks, expiry, size)),
+        body: JSON.stringify(await buildAuthenticationRequest(cardTokenId, sessionId, callbacks, expiry, size, ip ?? '')),
     });
     if (!res.ok) {
         throw new Error(`3DS authenticate failed (${res.status})`);
@@ -36,7 +36,7 @@ export async function authenticate(apiKey: string, cardTokenId: string, sessionI
     return payload;
 }
 
-async function buildAuthenticationRequest(cardTokenId: string, sessionId: string, callbacks: InitCallbacks, expiry: string, size: ChallengeSize) {
+async function buildAuthenticationRequest(cardTokenId: string, sessionId: string, callbacks: InitCallbacks, expiry: string, size: ChallengeSize, ip: string) {
     
     const amount = 
         callbacks?.getAmount 
@@ -70,7 +70,7 @@ async function buildAuthenticationRequest(cardTokenId: string, sessionId: string
     const expiryMonth = expiry.split('/')[0];
     const expiryYear = expiry.split('/')[1];
 
-    const browserData = await collectBrowserInformation();
+    const browserData = await collectBrowserInformation(ip);
 
     return {
       sessionId,
