@@ -1,5 +1,6 @@
 import { API } from '../../config';
 import { CheckoutComponent } from '../../lib/CheckoutComponent';
+import { normalizeAmount } from '../utils/currencyHelper';
 import type { PaymentResponse } from '../../types/payment-payloads';
 
 export async function pay(
@@ -87,7 +88,7 @@ async function buildPaymentRequest(
         cardEntry: component.getCardEntry(),
         intent: component.getIntent(),
         order: component.getOrder(),
-        currencyCode: normalizedAmount.currencyNumeric
+        currencyCode: normalizedAmount.currencyNumeric,
         card: {
           expiryMonth: expiryMonth,                   
           expiryYear: expiryYear,
