@@ -61,7 +61,7 @@ async function buildPaymentRequest(
     const expiryMonth = expiry.split('/')[0];
     const expiryYear = expiry.split('/')[1];
 
-    const addr = projectBillingAddress(cardholderInformation.billingAddress);
+    const addr = cardholderInformation.billingAddress;
 
     const ip = await component.getSourceIp();
     const url = (typeof window !== 'undefined' && window?.location?.href) ? window.location.href : undefined;
@@ -85,11 +85,10 @@ async function buildPaymentRequest(
           name: cardholderInformation.name,
           emailAddress: cardholderInformation.email,
           phoneNumber: cardholderInformation.phone,
-          ...(addr.billingStreet1 ? { billingStreet1: addr.billingStreet1 } : {}),
-          ...(addr.billingStreet2 ? { billingStreet2: addr.billingStreet2 } : {}),
-          ...(addr.billingCity ? { billingCity: addr.billingCity } : {}),
-          ...(addr.billingStateProv ? { billingStateProv: addr.billingStateProv } : {}),
-          ...(addr.billingPostcode ? { billingPostcode: addr.billingPostcode } : {}),
+          ...(addr?.addressLine1 ? { billingStreet1: addr.addressLine1 } : {}),
+          ...(addr?.addressLine2 ? { billingStreet2: addr.addressLine2 } : {}),
+          ...(addr?.city ? { billingCity: addr.city } : {}),
+          ...(addr?.postcode ? { billingPostcode: addr.postcode } : {}),
         },
         storeCardDetails: component.getStoreCardDetails(),
         idempotencyToken: crypto.randomUUID(),
@@ -100,34 +99,4 @@ async function buildPaymentRequest(
         validityId: component.getValidityId?.() ?? undefined,
         channel: component.getChannel?.() ?? 'Web',
       };
-}
-
-type BillingAddressPatch = {
-  billingStreet1?: string;
-  billingStreet2?: string;
-  billingCity?: string;
-  billingStateProv?: string;
-  billingPostcode?: string;
-  countryCode?: string; 
-};
-
-function projectBillingAddress(addr?: {
-  addressLine1?: string;
-  addressLine2?: string;
-  city?: string;
-  postcode?: string;
-  country?: string;
-  state?: string;
-  region?: string;
-}): BillingAddressPatch {
-  if (!addr) return {};
-  const stateProv = (addr as any).state ?? (addr as any).region;
-  return {
-    ...(addr.addressLine1 ? { billingStreet1: addr.addressLine1 } : {}),
-    ...(addr.addressLine2 ? { billingStreet2: addr.addressLine2 } : {}),
-    ...(addr.city ? { billingCity: addr.city } : {}),
-    ...(stateProv ? { billingStateProv: stateProv } : {}),
-    ...(addr.postcode ? { billingPostcode: addr.postcode } : {}),
-    countryCode: addr.country,
-  };
 }
