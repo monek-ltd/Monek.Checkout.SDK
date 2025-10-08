@@ -46,11 +46,11 @@ for (const e of COUNTRY_INDEX) {
 }
 
 /**
- * Normalize a country code to { alpha2, numeric }.
+ * normalise a country code to { alpha2, numeric }.
  * Accepts alpha-2 ("GB"), alpha-3 ("GBR"), or numeric ("826" / 826).
  * If unknown, returns best-effort with empty string for the missing part(s).
  */
-export function normalizeCountry(code: CountryCode): { alpha2: string; numeric: string } {
+export function normaliseCountry(code: CountryCode): { alpha2: string; numeric: string } {
   const raw = String(code).trim();
   const upper = raw.toUpperCase();
   const digitsOnly = upper.replace(/\D+/g, '');
@@ -79,8 +79,8 @@ export function normalizeCountry(code: CountryCode): { alpha2: string; numeric: 
 /**
  * Optional helper to get the full triplet (non-breaking add-on).
  */
-export function normalizeCountryFull(code: CountryCode): { alpha2: string; alpha3: string; numeric: string } {
-  const { alpha2, numeric } = normalizeCountry(code);
+export function normaliseCountryFull(code: CountryCode): { alpha2: string; alpha3: string; numeric: string } {
+  const { alpha2, numeric } = normaliseCountry(code);
   const entry = alpha2 ? CTY_BY_A2[alpha2] : (numeric ? CTY_BY_N3[numeric] : undefined);
   return {
     alpha2: entry?.a2 ?? '',

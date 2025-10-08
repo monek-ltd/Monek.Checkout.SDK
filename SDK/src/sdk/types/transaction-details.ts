@@ -12,7 +12,7 @@ export type AmountInput =
         currency: CurrencyCode;
     };
 
-export type AmountNormalized = {
+export type Amountnormalised = {
     minor: number;
     major: string;
     currencyAlpha3: string;

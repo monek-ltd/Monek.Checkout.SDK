@@ -8,8 +8,8 @@
  * - Presets: 'light' | 'dark'
  *
  * Usage in parent:
- *   const normalized = normalizeStyling({ theme:'dark', core:{ borderRadius: 10 } });
- *   const vars = toCssVars(normalized);
+ *   const normalised = normaliseStyling({ theme:'dark', core:{ borderRadius: 10 } });
+ *   const vars = toCssVars(normalised);
  *   iframe.contentWindow!.postMessage({ type:'configure', themeVars: vars }, targetOrigin);
  *
  * In iframe CSS, consume variables like:
@@ -72,36 +72,36 @@ export interface StylingOptions {
 // Normalised types
 ////////////////////////
 
-export interface NormalizedLayout {
+export interface normalisedLayout {
     containerPadding: string;
     textAlign: TextAlign;
     buttonAlign: ButtonAlign;
 }
 
-export interface NormalizedCore {
+export interface normalisedCore {
     backgroundColor: string;
     textColor: string;
     fontFamily: string;
     borderRadius: string;
 }
 
-export interface NormalizedInputs {
+export interface normalisedInputs {
     inputBackgroundColor: string;
     inputTextColor: string;
     inputBorderColor: string;
     inputBorderRadius: string;
 }
 
-export interface NormalizedTypography {
+export interface normalisedTypography {
     fontSize: string;
 }
 
-export interface NormalizedStyling {
+export interface normalisedStyling {
     baseTheme: ThemeName;
-    layout: NormalizedLayout;
-    core: NormalizedCore;
-    inputs: NormalizedInputs;
-    typography: NormalizedTypography;
+    layout: normalisedLayout;
+    core: normalisedCore;
+    inputs: normalisedInputs;
+    typography: normalisedTypography;
     cssVars: Record<string, string>; // any extra/overrides
 }
 
@@ -109,7 +109,7 @@ export interface NormalizedStyling {
 // Preset themes
 ////////////////////////
 
-const PRESETS: Record<ThemeName, NormalizedStyling> = {
+const PRESETS: Record<ThemeName, normalisedStyling> = {
     light: {
         baseTheme: 'light',
         layout: {
@@ -252,31 +252,31 @@ function coerceString(value: string | undefined, fallback: string): string {
 // Normalization
 ////////////////////////
 
-export function normalizeStyling(opts?: StylingOptions): NormalizedStyling {
+export function normaliseStyling(opts?: StylingOptions): normalisedStyling {
     const presetName: ThemeName = (opts?.theme ?? 'light');
     const preset = PRESETS[presetName];
 
-    const layout: NormalizedLayout = {
+    const layout: normalisedLayout = {
         containerPadding: coercePadding(opts?.layout?.containerPadding, preset.layout.containerPadding),
         textAlign: coerceAlign<TextAlign>(opts?.layout?.textAlign, ['left', 'center', 'right'] as const, preset.layout.textAlign),
         buttonAlign: coerceAlign<ButtonAlign>(opts?.layout?.buttonAlign, ['left', 'center', 'right', 'stretch'] as const, preset.layout.buttonAlign),
     };
 
-    const core: NormalizedCore = {
+    const core: normalisedCore = {
         backgroundColor: coerceColor(opts?.core?.backgroundColor, preset.core.backgroundColor),
         textColor: coerceColor(opts?.core?.textColor, preset.core.textColor),
         fontFamily: coerceString(opts?.core?.fontFamily, preset.core.fontFamily),
         borderRadius: coerceLength(opts?.core?.borderRadius, preset.core.borderRadius),
     };
 
-    const inputs: NormalizedInputs = {
+    const inputs: normalisedInputs = {
         inputBackgroundColor: coerceColor(opts?.inputs?.inputBackgroundColor, preset.inputs.inputBackgroundColor),
         inputTextColor: coerceColor(opts?.inputs?.inputTextColor, preset.inputs.inputTextColor),
         inputBorderColor: coerceColor(opts?.inputs?.inputBorderColor, preset.inputs.inputBorderColor),
         inputBorderRadius: coerceLength(opts?.inputs?.inputBorderRadius, preset.inputs.inputBorderRadius),
     };
 
-    const typography: NormalizedTypography = {
+    const typography: normalisedTypography = {
         fontSize: coerceLength(opts?.typography?.fontSize, preset.typography.fontSize),
     };
 
@@ -291,10 +291,10 @@ export function normalizeStyling(opts?: StylingOptions): NormalizedStyling {
 ////////////////////////
 
 /**
- * Convert NormalizedStyling to a map of CSS variables that the iframe consumes.
+ * Convert normalisedStyling to a map of CSS variables that the iframe consumes.
  * (These names must match the CSS your iframe uses.)
  */
-export function toCssVars(n: NormalizedStyling): Record<string, string> {
+export function toCssVars(n: normalisedStyling): Record<string, string> {
     const vars: Record<string, string> = {
         // Layout
         '--monek-container-padding': n.layout.containerPadding,
@@ -331,10 +331,10 @@ export function toCssVars(n: NormalizedStyling): Record<string, string> {
 // Convenience helpers
 ////////////////////////
 
-export function getPreset(name: ThemeName = 'light'): NormalizedStyling {
+export function getPreset(name: ThemeName = 'light'): normalisedStyling {
     return PRESETS[name];
 }
 
 export function buildThemeVars(opts?: StylingOptions): Record<string, string> {
-    return toCssVars(normalizeStyling(opts));
+    return toCssVars(normaliseStyling(opts));
 }

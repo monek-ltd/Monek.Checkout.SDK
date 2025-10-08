@@ -1,9 +1,9 @@
 import { interceptFormSubmit } from '../core/submitInterceptor';
 import { validateCallbacks } from '../core/init/validate';
-import { normalizeStyling, toCssVars, type StylingOptions } from '../types/styling';
+import { normaliseStyling, toCssVars, type StylingOptions } from '../types/styling';
 import { createSession } from '../core/init/createSession';
 import { getClientIpViaIpify } from '../core/utils/getClientIp';
-import { normalizeCountryFull } from '../core/utils/countryHelper';
+import { normaliseCountryFull } from '../core/utils/countryHelper';
 import type { InitCallbacks } from '../types/callbacks';
 import type { CompletionOptions } from '../types/completion';
 import type { Intent, CardEntry, Order, SettlementType } from '../types/transaction-details';
@@ -42,7 +42,7 @@ export class CheckoutComponent {
             throw new Error('Client-side completion requires an onSuccess callback.');
         }
 
-        this.themeVars = toCssVars(normalizeStyling(this.options.styling as StylingOptions));
+        this.themeVars = toCssVars(normaliseStyling(this.options.styling as StylingOptions));
 
         this.sourceIp = getClientIpViaIpify();
     }
@@ -72,7 +72,7 @@ export class CheckoutComponent {
     }
 
     public getCountryCode(): { alpha2: string; alpha3: string; numeric: string } {
-        return normalizeCountryFull(this.options.countryCode ?? 826);
+        return normaliseCountryFull(this.options.countryCode ?? 826);
     }
 
     public getCallbacks(): InitCallbacks | undefined {

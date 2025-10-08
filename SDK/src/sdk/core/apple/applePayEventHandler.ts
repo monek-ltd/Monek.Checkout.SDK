@@ -3,8 +3,8 @@ import { validateMerchantDomain } from "./validateMerchantDomain";
 import { validateCallbacks } from '../../core/init/validate';
 import type { InitCallbacks } from '../../types/callbacks';
 import type { AmountInput } from '../../types/transaction-details'
-import { normalizeCountryFull } from '../utils/countryHelper';
-import { normalizeAmount } from '../utils/currencyHelper';
+import { normaliseCountryFull } from '../utils/countryHelper';
+import { normaliseAmount } from '../utils/currencyHelper';
 
 export async function applePayEventHandler(publicKey: string, options: Record<string, any>, sessionId: string) {
 
@@ -21,8 +21,8 @@ export async function applePayEventHandler(publicKey: string, options: Record<st
             ? await callbacks.getAmount()
             : { minor: 0, currency: '826' } as AmountInput;
 
-    const normalizedAmount = normalizeAmount(amount);
-    const normalizedCountry = normalizeCountryFull(options.countryCode ?? 'GB');
+    const normalisedAmount = normaliseAmount(amount);
+    const normalisedCountry = normaliseCountryFull(options.countryCode ?? 'GB');
 
     const applePayRequest: ApplePayJS.ApplePayPaymentRequest = {
         merchantCapabilities: [
@@ -35,12 +35,12 @@ export async function applePayEventHandler(publicKey: string, options: Record<st
             'masterCard',
             'amex'
         ],
-        countryCode: normalizedCountry.alpha2,
-        currencyCode: normalizedAmount.currencyAlpha3,
+        countryCode: normalisedCountry.alpha2,
+        currencyCode: normalisedAmount.currencyAlpha3,
         total: {
             label: options.label || 'Pay Now',
             type: 'final',
-            amount: normalizedAmount.major
+            amount: normalisedAmount.major
         }
     };
 

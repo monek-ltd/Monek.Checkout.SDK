@@ -1,4 +1,4 @@
-import type { CurrencyCode, AmountInput, AmountNormalized } from '../../types/transaction-details';
+import type { CurrencyCode, AmountInput, Amountnormalised } from '../../types/transaction-details';
 
 
 const CURR_MAP_ALPHA_TO_NUM: Record<string, string> = {
@@ -8,7 +8,7 @@ const CURR_MAP_NUM_TO_ALPHA: Record<string, string> = {
     '826': 'GBP', '840': 'USD', '978': 'EUR', '392': 'JPY'
 };
 
-export function normalizeCurrency(code: CurrencyCode): { alpha3: string; numeric: string } {
+export function normaliseCurrency(code: CurrencyCode): { alpha3: string; numeric: string } {
     const raw = String(code).trim().toUpperCase();
     if (/^\d+$/.test(raw)) {
         const alpha3 = CURR_MAP_NUM_TO_ALPHA[raw] ?? raw; 
@@ -40,8 +40,8 @@ export function majorToMinor(major: string | number, alpha3: string): number {
     return Math.round(n * Math.pow(10, d));
 }
 
-export function normalizeAmount(input: AmountInput): AmountNormalized {
-    const { alpha3, numeric } = normalizeCurrency(input.currency);
+export function normaliseAmount(input: AmountInput): Amountnormalised {
+    const { alpha3, numeric } = normaliseCurrency(input.currency);
     if ('minor' in input) {
         return {
             minor: input.minor ?? 0,
