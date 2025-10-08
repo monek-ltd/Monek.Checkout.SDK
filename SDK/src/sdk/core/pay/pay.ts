@@ -1,6 +1,6 @@
 import { API } from '../../config';
 import { CheckoutComponent } from '../../lib/CheckoutComponent';
-import { normalizeAmount } from '../utils/currencyHelper';
+import { normaliseAmount } from '../utils/currencyHelper';
 import type { PaymentResponse } from '../../types/payment-payloads';
 
 export async function pay(
@@ -50,7 +50,7 @@ async function buildPaymentRequest(
         throw new Error('Missing amount: pass in or provide getAmount()');
     }
 
-    const normalizedAmount = normalizeAmount(amount);
+    const normalisedAmount = normaliseAmount(amount);
 
     const cardholderInformation =
         callbacks?.getCardholderDetails
@@ -88,7 +88,8 @@ async function buildPaymentRequest(
         cardEntry: component.getCardEntry(),
         intent: component.getIntent(),
         order: component.getOrder(),
-        currencyCode: normalizedAmount.currencyNumeric,
+        currencyCode: normalisedAmount.currencyNumeric,
+        countryCode: component.getCountryCode().numeric,
         card: {
           expiryMonth: expiryMonth,                   
           expiryYear: expiryYear,
