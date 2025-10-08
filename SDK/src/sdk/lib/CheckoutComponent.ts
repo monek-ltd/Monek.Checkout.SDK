@@ -3,6 +3,7 @@ import { validateCallbacks } from '../core/init/validate';
 import { normalizeStyling, toCssVars, type StylingOptions } from '../types/styling';
 import { createSession } from '../core/init/createSession';
 import { getClientIpViaIpify } from '../core/utils/getClientIp';
+import { normalizeCountryFull } from '../core/utils/countryHelper';
 import type { InitCallbacks } from '../types/callbacks';
 import type { CompletionOptions } from '../types/completion';
 import type { Intent, CardEntry, Order, SettlementType } from '../types/transaction-details';
@@ -68,6 +69,10 @@ export class CheckoutComponent {
 
     public getOrder(): Order {
         return this.options.order ?? 'Checkout' as Order;
+    }
+
+    public getCountryCode(): { alpha2: string; alpha3: string; numeric: string } {
+        return normalizeCountryFull(this.options.countryCode ?? 826);
     }
 
     public getCallbacks(): InitCallbacks | undefined {

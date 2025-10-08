@@ -1,4 +1,4 @@
-import type { CurrencyCode, CountryCode, AmountInput, AmountNormalized } from '../../types/transaction-details';
+import type { CurrencyCode, AmountInput, AmountNormalized } from '../../types/transaction-details';
 
 
 const CURR_MAP_ALPHA_TO_NUM: Record<string, string> = {
@@ -7,14 +7,11 @@ const CURR_MAP_ALPHA_TO_NUM: Record<string, string> = {
 const CURR_MAP_NUM_TO_ALPHA: Record<string, string> = {
     '826': 'GBP', '840': 'USD', '978': 'EUR', '392': 'JPY'
 };
-const CTY_MAP_NUM_TO_A2: Record<string, string> = {
-    '826': 'GB', '840': 'US', '250': 'FR', '392': 'JP'
-};
 
 export function normalizeCurrency(code: CurrencyCode): { alpha3: string; numeric: string } {
     const raw = String(code).trim().toUpperCase();
     if (/^\d+$/.test(raw)) {
-        const alpha3 = CURR_MAP_NUM_TO_ALPHA[raw] ?? raw;   // if unknown, leave as numeric-ish
+        const alpha3 = CURR_MAP_NUM_TO_ALPHA[raw] ?? raw; 
         return { alpha3, numeric: raw };
     }
     const alpha3 = raw;
@@ -22,22 +19,11 @@ export function normalizeCurrency(code: CurrencyCode): { alpha3: string; numeric
     return { alpha3, numeric };
 }
 
-export function normalizeCountry(code: CountryCode): { alpha2: string; numeric: string } {
-    const raw = String(code).trim().toUpperCase();
-    if (/^\d+$/.test(raw)) {
-        const a2 = CTY_MAP_NUM_TO_A2[raw] ?? '';
-        return { alpha2: a2, numeric: raw };
-    }
-    // assume already alpha-2 like "GB"
-    return { alpha2: raw, numeric: '' };
-}
-
 export function currencyFractionDigits(alpha3: string): number {
     try {
         return new Intl.NumberFormat('en', { style: 'currency', currency: alpha3 })
             .resolvedOptions().maximumFractionDigits ?? 2;
     } catch {
-        // fallback for unknown
         return 2;
     }
 }
