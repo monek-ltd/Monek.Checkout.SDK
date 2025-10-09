@@ -53,11 +53,12 @@ export async function applePayEventHandler(publicKey: string, options: Record<st
             validationURL: event.validationURL,
             displayName: applePayRequest.total.label,
             parentUrl: document.location.hostname,
+            merchantRef: publicKey
         };
 
         console.log(`Payload for validating merchat URL is: ${JSON.stringify(payload)}`)
 
-        const merchantSession = await validateMerchantDomain(publicKey, payload);
+        const merchantSession = await validateMerchantDomain(payload);
 
         if (merchantSession?.status === '200') {
 
