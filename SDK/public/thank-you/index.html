@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <title>Payment Successful — Monek Checkout</title>
+    <title>Payment Successful ï¿½ Monek Checkout</title>
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <style>
         :root {
@@ -155,7 +155,7 @@
 
         <section aria-labelledby="sid-title">
             <h2 id="sid-title" class="small" style="letter-spacing:.08em; text-transform:uppercase;">Session ID</h2>
-            <div id="sid" class="code" aria-live="polite">Loading…</div>
+            <div id="sid" class="code" aria-live="polite">Loadingï¿½</div>
             <div class="spacer" style="height:12px;"></div>
             <div class="actions">
                 <button id="btn-copy" type="button" title="Copy session id">Copy</button>
@@ -166,7 +166,7 @@
 
         <div class="spacer"></div>
 
-        <p id="note" class="small">We’ve sent a completion message to the original window (if available) using <code>postMessage</code>.</p>
+        <p id="note" class="small">Weï¿½ve sent a completion message to the original window (if available) using <code>postMessage</code>.</p>
         <p id="error" class="small error" hidden>No session ID was provided. If you reached this page directly, return to the checkout and try again.</p>
     </main>
 
@@ -182,7 +182,7 @@
       const sid = params.get('s');
 
       if (!sid) {
-        elSid.textContent = '—';
+        elSid.textContent = 'ï¿½';
         elErr.hidden = false;
       } else {
         elSid.textContent = sid;
