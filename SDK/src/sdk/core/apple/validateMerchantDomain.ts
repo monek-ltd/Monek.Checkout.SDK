@@ -1,6 +1,6 @@
 import { API } from '../../config';
 
-export async function validateMerchantDomain(apiKey: string, payload: any) {
+export async function validateMerchantDomain(payload: any) {
     const url = `${API.appleSession}`;
    
     try {
@@ -8,7 +8,7 @@ export async function validateMerchantDomain(apiKey: string, payload: any) {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                'x-api-key': apiKey,
+                //'x-api-key': apiKey,
             },
             body: JSON.stringify(payload),
         });
