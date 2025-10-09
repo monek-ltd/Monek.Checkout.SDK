@@ -151,7 +151,7 @@
           challenge: { display: 'popup', size: 'medium' },
           completion: {
             mode: 'client',
-            onSuccess: (ctx, { redirect }) => redirect(`/thank-you?s=${encodeURIComponent(ctx.sessionId)}`),
+            onSuccess: (ctx, { redirect }) => redirect(`/demo-complete?s=${encodeURIComponent(ctx.sessionId)}`),
             onError:   (ctx, { reenable }) => { reenable(); alert(ctx?.payment?.Message || 'Payment failed'); },
             onCancel:  (ctx, { reenable }) => reenable(),
           },
