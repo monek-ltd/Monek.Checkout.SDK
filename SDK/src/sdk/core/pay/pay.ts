@@ -89,6 +89,7 @@ async function buildPaymentRequest(
         intent: component.getIntent(),
         order: component.getOrder(),
         currencyCode: normalisedAmount.currencyNumeric,
+        minorAmount: normalisedAmount.minor,
         countryCode: component.getCountryCode().numeric,
         card: {
           expiryMonth: expiryMonth,                   
