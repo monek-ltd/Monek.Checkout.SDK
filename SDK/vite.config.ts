@@ -14,6 +14,7 @@ export default defineConfig({
         main: resolve(__dirname, 'index.html'),
         hostedFields: resolve(__dirname, 'src/hostedFields/hosted-fields.html'),
         expressCheckout: resolve(__dirname, 'src/expressCheckout/express-checkout.html'),
+        thankYou: resolve(__dirname, 'src/thank-you/thank-you.html'),
       },
     },
   },
