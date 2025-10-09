@@ -115,8 +115,8 @@
             const STYLING_DARK = { theme: 'dark' };
             const STYLING_BRAND = {
                 theme: 'light',
-                layout: { containerPadding: ['28px','32px','28px','32px'], textAlign: 'center', buttonAlign: 'right' },
-                core:   { backgroundColor: '#230046', textColor: '#F1FF52', fontFamily: 'Impact, "Arial Black", system-ui, sans-serif', borderRadius: 28 },
+                layout: { containerPadding: ['28px', '32px', '28px', '32px'], textAlign: 'center', buttonAlign: 'right' },
+                core: { backgroundColor: '#230046', textColor: '#F1FF52', fontFamily: 'Impact, "Arial Black", system-ui, sans-serif', borderRadius: 28 },
                 inputs: { inputBackgroundColor: '#FFF5C7', inputTextColor: '#230046', inputBorderColor: '#FF00AA', inputBorderRadius: 24 },
                 typography: { fontSize: 20 },
                 cssVars: { '--monek-input-focus': '#00E0FF', '--monek-input-placeholder': '#FF00AA', '--monek-input-height': '6px', '--monek-shadow': '0 0 0 4px rgba(255,0,170,.15), 0 16px 48px rgba(35,0,70,.45)' },
@@ -129,41 +129,41 @@
             let express = null;
             let lastPreset = STYLING_LIGHT;
 
-        const buildOptions = (stylingPreset, isExpress) => ({
-          //frameUrl: isExpress 
-          // ? 'https://dev-checkout-js.monek.com/src/expressCheckout/express-checkout.html' 
-          // : 'https://dev-checkout-js.monek.com/src/hostedFields/hosted-fields.html',
-                    callbacks: {
-                        getAmount: () => ({ minor: 10, currency: '826' }),
-                        getDescription: () => 'goods',
-                        getCardholderDetails: () => ({
-                            name:  val('billingName'),
-                            email: val('billingEmail'),
-                            HomePhone: val('billingPhone'),
-                            billingAddress: {
-                                addressLine1: val('billingAddress1'),
-                                addressLine2: val('billingAddress2'),
-                                city:         val('billingCity'),
-                                postcode:     val('billingPostcode'),
-                                country:      val('billingCountry'),
-                            },
-                        }),
-                    },
-                    countryCode: '826',
-                    styling: stylingPreset,
-                    challenge: { display: 'popup', size: 'medium' },
-                    completion: {
-                        mode: 'client',
-                        onSuccess: (ctx, { redirect }) => redirect(`/demo-complete?s=${encodeURIComponent(ctx.sessionId)}`),
-                        onError:   (ctx, { reenable }) => { reenable(); alert(ctx?.payment?.Message || 'Payment failed'); },
-                        onCancel:  (ctx, { reenable }) => reenable(),
-                    },
-                    intent: 'Purchase',
-                    order: 'Checkout',
-                    settlementType: 'Auto',
-                    storeCardDetails: false,
-                    cardEntry: 'ECommerce',
-                });
+            const buildOptions = (stylingPreset, isExpress) => ({
+                //frameUrl: isExpress
+                // ? 'https://dev-checkout-js.monek.com/src/expressCheckout/express-checkout.html'
+                // : 'https://dev-checkout-js.monek.com/src/hostedFields/hosted-fields.html',
+                callbacks: {
+                    getAmount: () => ({ minor: 10, currency: '826' }),
+                    getDescription: () => 'goods',
+                    getCardholderDetails: () => ({
+                        name: val('billingName'),
+                        email: val('billingEmail'),
+                        HomePhone: val('billingPhone'),
+                        billingAddress: {
+                            addressLine1: val('billingAddress1'),
+                            addressLine2: val('billingAddress2'),
+                            city: val('billingCity'),
+                            postcode: val('billingPostcode'),
+                            country: val('billingCountry'),
+                        },
+                    }),
+                },
+                countryCode: '826',
+                styling: stylingPreset,
+                challenge: { display: 'popup', size: 'medium' },
+                completion: {
+                    mode: 'client',
+                    onSuccess: (ctx, { redirect }) => redirect(`/demo-complete?s=${encodeURIComponent(ctx.sessionId)}`),
+                    onError: (ctx, { reenable }) => { reenable(); alert(ctx?.payment?.Message || 'Payment failed'); },
+                    onCancel: (ctx, { reenable }) => reenable(),
+                },
+                intent: 'Purchase',
+                order: 'Checkout',
+                settlementType: 'Auto',
+                storeCardDetails: false,
+                cardEntry: 'ECommerce',
+            });
 
             function setLoadingPlaceholders() {
                 const container = document.querySelector('#sdk-container');
@@ -173,8 +173,8 @@
             }
 
             async function destroyComponents() {
-            if (checkout?.destroy) { try { await checkout.destroy(); } catch {} }
-            if (express?.destroy)  { try { await express.destroy(); } catch {} }
+                if (checkout?.destroy) { try { await checkout.destroy(); } catch { } }
+                if (express?.destroy) { try { await express.destroy(); } catch { } }
                 checkout = null;
                 express = null;
             }
@@ -204,17 +204,17 @@
 
             // ====== theme buttons ======
             document.getElementById('btn-light').addEventListener('click', () => {
-            document.documentElement.setAttribute('data-theme','light');
+                document.documentElement.setAttribute('data-theme', 'light');
                 mountWithPreset(STYLING_LIGHT);
             });
 
             document.getElementById('btn-dark').addEventListener('click', () => {
-            document.documentElement.setAttribute('data-theme','dark');
+                document.documentElement.setAttribute('data-theme', 'dark');
                 mountWithPreset(STYLING_DARK);
             });
 
             document.getElementById('btn-brand').addEventListener('click', () => {
-            document.documentElement.setAttribute('data-theme','light');
+                document.documentElement.setAttribute('data-theme', 'light');
                 mountWithPreset(STYLING_BRAND);
             });
 
