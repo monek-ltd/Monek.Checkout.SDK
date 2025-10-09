@@ -86,152 +86,149 @@
     <!-- The built SDK (IIFE). -->
     <script src="/monek-checkout.iife.js"></script>
     <script>
-      (async function () {
-        window.addEventListener('message', (evt) => {
-          console.log('[PARENT RX]', evt.origin, evt.data);
-        });
-        console.log('[parent] origin =', window.location.origin);
+        (async function () {
+            window.addEventListener('message', (evt) => {
+                console.log('[PARENT RX]', evt.origin, evt.data);
+            });
+            console.log('[parent] origin =', window.location.origin);
 
-        if (typeof window.Monek !== 'function') {
-          console.error('Monek SDK not loaded');
-          return;
-        }
+            if (typeof window.Monek !== 'function') {
+                console.error('Monek SDK not loaded');
+                return;
+            }
 
-        // ====== keys ======
-        const KEYS = {
-          A: 'test_73cd746315f242ce9785d2775fbd5164', // 0000015
-          B: 'live_2f3dfc096c4c46abad965079f2937704', // 0179127
-        };
-        let currentKey = 'A';
-        const keyLabel = document.getElementById('active-key-label');
+            // ====== keys ======
+            const KEYS = {
+                A: 'test_73cd746315f242ce9785d2775fbd5164', // 0000015
+                B: 'live_2f3dfc096c4c46abad965079f2937704', // 0179127
+            };
 
-        // ====== theming presets ======
-        const formEl = document.getElementById('test-form');
+            const params = new URLSearchParams(location.search);
+            let currentKey = (params.get('key') === 'B') ? 'B' : 'A';
 
-        const STYLING_LIGHT = { theme: 'light' };
-        const STYLING_DARK = { theme: 'dark' };
-        const STYLING_BRAND = {
-          theme: 'light',
-          layout: { containerPadding: ['28px','32px','28px','32px'], textAlign: 'center', buttonAlign: 'right' },
-          core:   { backgroundColor: '#230046', textColor: '#F1FF52', fontFamily: 'Impact, "Arial Black", system-ui, sans-serif', borderRadius: 28 },
-          inputs: { inputBackgroundColor: '#FFF5C7', inputTextColor: '#230046', inputBorderColor: '#FF00AA', inputBorderRadius: 24 },
-          typography: { fontSize: 20 },
-          cssVars: { '--monek-input-focus': '#00E0FF', '--monek-input-placeholder': '#FF00AA', '--monek-input-height': '6px', '--monek-shadow': '0 0 0 4px rgba(255,0,170,.15), 0 16px 48px rgba(35,0,70,.45)' },
-        };
+            const keyLabel = document.getElementById('active-key-label');
 
-        const val = (name) => String(new FormData(formEl).get(name) ?? '');
+            // ====== theming presets ======
+            const formEl = document.getElementById('test-form');
 
-        let sdk = null;
-        let checkout = null;
-        let express = null;
-        let lastPreset = STYLING_LIGHT;
+            const STYLING_LIGHT = { theme: 'light' };
+            const STYLING_DARK = { theme: 'dark' };
+            const STYLING_BRAND = {
+                theme: 'light',
+                layout: { containerPadding: ['28px', '32px', '28px', '32px'], textAlign: 'center', buttonAlign: 'right' },
+                core: { backgroundColor: '#230046', textColor: '#F1FF52', fontFamily: 'Impact, "Arial Black", system-ui, sans-serif', borderRadius: 28 },
+                inputs: { inputBackgroundColor: '#FFF5C7', inputTextColor: '#230046', inputBorderColor: '#FF00AA', inputBorderRadius: 24 },
+                typography: { fontSize: 20 },
+                cssVars: { '--monek-input-focus': '#00E0FF', '--monek-input-placeholder': '#FF00AA', '--monek-input-height': '6px', '--monek-shadow': '0 0 0 4px rgba(255,0,170,.15), 0 16px 48px rgba(35,0,70,.45)' },
+            };
 
-        const buildOptions = (stylingPreset, isExpress) => ({
-          //frameUrl: isExpress 
-          // ? 'https://dev-checkout-js.monek.com/src/expressCheckout/express-checkout.html' 
-          // : 'https://dev-checkout-js.monek.com/src/hostedFields/hosted-fields.html',
-          callbacks: {
-            getAmount: () => ({ minor: 10, currency: '826' }),
-            getDescription: () => 'goods',
-            getCardholderDetails: () => ({
-              name:  val('billingName'),
-              email: val('billingEmail'),
-              HomePhone: val('billingPhone'),
-              billingAddress: {
-                addressLine1: val('billingAddress1'),
-                addressLine2: val('billingAddress2'),
-                city:         val('billingCity'),
-                postcode:     val('billingPostcode'),
-                country:      val('billingCountry'),
-              },
-            }),
-          },
-          countryCode: '826',
-          styling: stylingPreset,
-          challenge: { display: 'popup', size: 'medium' },
-          completion: {
-            mode: 'client',
-            onSuccess: (ctx, { redirect }) => redirect(`/demo-complete?s=${encodeURIComponent(ctx.sessionId)}`),
-            onError:   (ctx, { reenable }) => { reenable(); alert(ctx?.payment?.Message || 'Payment failed'); },
-            onCancel:  (ctx, { reenable }) => reenable(),
-          },
-          intent: 'Purchase',
-          order: 'Checkout',
-          settlementType: 'Auto',
-          storeCardDetails: false,
-          cardEntry: 'ECommerce',
-        });
+            const val = (name) => String(new FormData(formEl).get(name) ?? '');
 
-        function setLoadingPlaceholders() {
-          const container = document.querySelector('#sdk-container');
-          container.innerHTML = '<div style="padding:8px;color:#666">Loading…</div>';
-          const expressContainer = document.querySelector('#sdk-express-container');
-          expressContainer.innerHTML = '<div style="padding:8px;color:#666">Loading…</div>';
-        }
+            let sdk = null;
+            let checkout = null;
+            let express = null;
+            let lastPreset = STYLING_LIGHT;
 
-        async function destroyComponents() {
-          if (checkout?.destroy) { try { await checkout.destroy(); } catch {} }
-          if (express?.destroy)  { try { await express.destroy(); } catch {} }
-          checkout = null;
-          express = null;
-        }
+            const buildOptions = (stylingPreset, isExpress) => ({
+                //frameUrl: isExpress
+                // ? 'https://dev-checkout-js.monek.com/src/expressCheckout/express-checkout.html'
+                // : 'https://dev-checkout-js.monek.com/src/hostedFields/hosted-fields.html',
+                callbacks: {
+                    getAmount: () => ({ minor: 10, currency: '826' }),
+                    getDescription: () => 'goods',
+                    getCardholderDetails: () => ({
+                        name: val('billingName'),
+                        email: val('billingEmail'),
+                        HomePhone: val('billingPhone'),
+                        billingAddress: {
+                            addressLine1: val('billingAddress1'),
+                            addressLine2: val('billingAddress2'),
+                            city: val('billingCity'),
+                            postcode: val('billingPostcode'),
+                            country: val('billingCountry'),
+                        },
+                    }),
+                },
+                countryCode: '826',
+                styling: stylingPreset,
+                challenge: { display: 'popup', size: 'medium' },
+                completion: {
+                    mode: 'client',
+                    onSuccess: (ctx, { redirect }) => redirect(`/demo-complete?s=${encodeURIComponent(ctx.sessionId)}`),
+                    onError: (ctx, { reenable }) => { reenable(); alert(ctx?.payment?.Message || 'Payment failed'); },
+                    onCancel: (ctx, { reenable }) => reenable(),
+                },
+                intent: 'Purchase',
+                order: 'Checkout',
+                settlementType: 'Auto',
+                storeCardDetails: false,
+                cardEntry: 'ECommerce',
+            });
 
-        async function mountWithPreset(preset) {
-          lastPreset = preset;
-          setLoadingPlaceholders();
+            function setLoadingPlaceholders() {
+                const container = document.querySelector('#sdk-container');
+                container.innerHTML = '<div style="padding:8px;color:#666">Loading…</div>';
+                const expressContainer = document.querySelector('#sdk-express-container');
+                expressContainer.innerHTML = '<div style="padding:8px;color:#666">Loading…</div>';
+            }
 
-          await destroyComponents();
+            async function destroyComponents() {
+                if (checkout?.destroy) { try { await checkout.destroy(); } catch { } }
+                if (express?.destroy) { try { await express.destroy(); } catch { } }
+                checkout = null;
+                express = null;
+            }
 
-          checkout = sdk.createComponent('checkout', buildOptions(preset, false));
-          await checkout.mount('#sdk-container');
+            async function mountWithPreset(preset) {
+                lastPreset = preset;
+                setLoadingPlaceholders();
 
-          express = sdk.createComponent('express', buildOptions(preset, true));
-          await express.mount('#sdk-express-container');
-        }
+                await destroyComponents();
 
-        async function initSdkForKey(keyCode) {
-          // init a fresh SDK instance for a specific public key
-          sdk = await window.Monek(KEYS[keyCode]);
-          keyLabel.textContent = `Active key: ${keyCode} (${KEYS[keyCode].slice(0, 8)}… )`;
-        }
+                checkout = sdk.createComponent('checkout', buildOptions(preset, false));
+                await checkout.mount('#sdk-container');
 
-        // ====== initial boot ======
-        await initSdkForKey(currentKey);
-        await mountWithPreset(STYLING_LIGHT);
+                express = sdk.createComponent('express', buildOptions(preset, true));
+                await express.mount('#sdk-express-container');
+            }
 
-        // ====== theme buttons ======
-        document.getElementById('btn-light').addEventListener('click', () => {
-          document.documentElement.setAttribute('data-theme','light');
-          mountWithPreset(STYLING_LIGHT);
-        });
-        document.getElementById('btn-dark').addEventListener('click', () => {
-          document.documentElement.setAttribute('data-theme','dark');
-          mountWithPreset(STYLING_DARK);
-        });
-        document.getElementById('btn-brand').addEventListener('click', () => {
-          document.documentElement.setAttribute('data-theme','light');
-          mountWithPreset(STYLING_BRAND);
-        });
+            async function initSdkForKey(keyCode) {
+                // init a fresh SDK instance for a specific public key
+                sdk = await window.Monek(KEYS[keyCode]);
+                keyLabel.textContent = `Active key: ${keyCode} (${KEYS[keyCode].slice(0, 8)}… )`;
+            }
 
-        // ====== key switcher buttons ======
-        document.getElementById('btn-key-a').addEventListener('click', async () => {
-          if (currentKey === 'A') return;
-          currentKey = 'A';
-          setLoadingPlaceholders();
-          await destroyComponents();
-          await initSdkForKey(currentKey);
-          await mountWithPreset(lastPreset); // remount with last styling
-        });
+            // ====== initial boot ======
+            await initSdkForKey(currentKey);
+            await mountWithPreset(STYLING_LIGHT);
 
-        document.getElementById('btn-key-b').addEventListener('click', async () => {
-          if (currentKey === 'B') return;
-          currentKey = 'B';
-          setLoadingPlaceholders();
-          await destroyComponents();
-          await initSdkForKey(currentKey);
-          await mountWithPreset(lastPreset);
-        });
-      })();
+            // ====== theme buttons ======
+            document.getElementById('btn-light').addEventListener('click', () => {
+                document.documentElement.setAttribute('data-theme', 'light');
+                mountWithPreset(STYLING_LIGHT);
+            });
+
+            document.getElementById('btn-dark').addEventListener('click', () => {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                mountWithPreset(STYLING_DARK);
+            });
+
+            document.getElementById('btn-brand').addEventListener('click', () => {
+                document.documentElement.setAttribute('data-theme', 'light');
+                mountWithPreset(STYLING_BRAND);
+            });
+
+            // ====== key switcher buttons ======
+            const reloadWithKey = (keyCode) => {
+                const url = new URL(window.location.href);
+                url.searchParams.set('key', keyCode);
+                window.location.assign(url.toString());
+            };
+
+            document.getElementById('btn-key-a').addEventListener('click', () => reloadWithKey('A'));
+            document.getElementById('btn-key-b').addEventListener('click', () => reloadWithKey('B'));
+
+        })();
     </script>
 </body>
 </html>
