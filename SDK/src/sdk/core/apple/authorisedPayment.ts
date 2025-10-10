@@ -1,10 +1,9 @@
 import { API } from '../../config';
-import { apiFetch } from "../utils/apiClient";
 
 export async function authorisedPayment(apiKey: string, payload: any) {
     const url = `${API.base}/payment/apple-pay`;
    
-    const response = await apiFetch(url, {
+    const response = await fetch(url, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
