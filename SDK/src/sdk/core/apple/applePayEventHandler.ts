@@ -45,8 +45,9 @@ export async function applePayEventHandler(publicKey: string, options: Record<st
     };
 
     // Create ApplePaySession
-    window.applePaySession = new APSession(14, applePayRequest);
-    const session = window.applePaySession;
+    (window as any).applePaySession = new APSession(14, applePayRequest);
+    const session: InstanceType<typeof APSession> = (window as any).applePaySession;
+
 
     session.onvalidatemerchant = async (event:ApplePayJS.ApplePayValidateMerchantEvent) => {
         // Request a merchant session
@@ -66,9 +67,11 @@ export async function applePayEventHandler(publicKey: string, options: Record<st
 
             console.log(`Merchant URL ${payload.validationURL} has been validated`);
             
-            const appleSession = merchantSession?.data ?? merchantSession;
+            const appleSession = (merchantSession as any).session ?? merchantSession;
 
             session.completeMerchantValidation(appleSession);
+
+            console.log("Validation Complete");
         } else {
             console.error("Merchant could not be validated");
         }
@@ -123,11 +126,11 @@ export async function applePayEventHandler(publicKey: string, options: Record<st
 
                 if (paymentResponse.message.toUpperCase() === "SUCCESS") {
                     session.completePayment({
-                        "status": ApplePaySession.STATUS_SUCCESS
+                        "status": APSession.STATUS_SUCCESS
                     });
                 } else {
                     session.completePayment({
-                        "status": ApplePaySession.STATUS_FAILURE
+                        "status": APSession.STATUS_FAILURE
                     });
                 }
             } 
@@ -135,7 +138,7 @@ export async function applePayEventHandler(publicKey: string, options: Record<st
                 console.error("Error during authorising payment: ", error);
 
                 session.completePayment({
-                    "status": ApplePaySession.STATUS_FAILURE
+                    "status": APSession.STATUS_FAILURE
                 });
             }
         }
