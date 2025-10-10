@@ -40,7 +40,7 @@ export async function applePayEventHandler(publicKey: string, options: Record<st
         total: {
             label: options.label || 'Pay Now',
             type: 'final',
-            amount: normalisedAmount.major
+            amount: String(normalisedAmount.major)
         }
     };
 
@@ -65,8 +65,10 @@ export async function applePayEventHandler(publicKey: string, options: Record<st
         if (merchantSession?.status === '200') {
 
             console.log(`Merchant URL ${payload.validationURL} has been validated`);
+            
+            const appleSession = merchantSession?.data ?? merchantSession;
 
-            session.completeMerchantValidation(merchantSession);
+            session.completeMerchantValidation(appleSession);
         } else {
             console.error("Merchant could not be validated");
         }
