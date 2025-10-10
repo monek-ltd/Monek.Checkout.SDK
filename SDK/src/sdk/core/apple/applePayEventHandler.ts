@@ -45,7 +45,8 @@ export async function applePayEventHandler(publicKey: string, options: Record<st
     };
 
     // Create ApplePaySession
-    const session = new APSession(14, applePayRequest);
+    window.applePaySession = new APSession(14, applePayRequest);
+    const session = window.applePaySession;
 
     session.onvalidatemerchant = async (event:ApplePayJS.ApplePayValidateMerchantEvent) => {
         // Request a merchant session
