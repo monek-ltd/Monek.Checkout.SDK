@@ -115,13 +115,33 @@ export async function applePayEventHandler(publicKey: string, options: Record<st
         const paymentData = event.payment;
 
         if (paymentData.token) {
-            const payload = {
-                token: paymentData.token,
-                sessionId: sessionId,
-            }
 
             try {
-                const paymentResponse = await authorisedPayment(publicKey, payload);
+                  const description = callbacks?.getDescription ? await callbacks.getDescription() : undefined;
+                  const url = typeof window !== 'undefined' && window?.location?.href ? window.location.href : undefined;
+                  const source = typeof navigator !== 'undefined' && navigator?.userAgent ? `web:${navigator.userAgent}` : 'EmbeddedCheckout';
+
+                  const body = {
+                    SessionId: sessionId,
+                    SettlementType: options.settlementType ?? 'Auto', 
+                    Intent: options.intent ?? 'Purchase',     
+                    CardEntry: options.cardEntry ?? 'ECommerce', 
+                    Order: options.order ?? 'Checkout',  
+                    currencyCode: normalisedAmount.currencyNumeric,
+
+                    PaymentReference: options.paymentReference ?? undefined,
+                    IdempotencyToken: crypto.randomUUID(),
+                    ValidityId: options.validityId ?? undefined,
+                    Channel: options.channel ?? 'Web',
+                    Source: source,
+                    SourceIpAddress: options.sourceIpAddress ?? undefined, 
+                    Url: url,
+                    BasketDescription: description,
+
+                    Token: paymentData.token
+                    };
+
+                const paymentResponse = await authorisedPayment(publicKey, body);
 
                 if (paymentResponse.message.toUpperCase() === "SUCCESS") {
                     session.completePayment({
