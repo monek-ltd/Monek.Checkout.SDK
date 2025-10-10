@@ -32,6 +32,7 @@ export class ExpressComponent {
         iframe.style.height = '65px';
         iframe.style.border = '0';
         iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');
+        iframe.setAttribute('payment', '*');
 
         root.appendChild(iframe);
 
