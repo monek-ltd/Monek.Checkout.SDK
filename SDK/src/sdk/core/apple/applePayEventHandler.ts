@@ -120,7 +120,6 @@ export async function applePayEventHandler(publicKey: string, options: Record<st
                 sessionId: sessionId,
             }
 
-            // Forward token to Monek gateway for processing payment and return result to apple pay
             try {
                 const paymentResponse = await authorisedPayment(publicKey, payload);
 
