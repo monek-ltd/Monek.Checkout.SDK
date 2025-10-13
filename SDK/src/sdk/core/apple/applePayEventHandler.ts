@@ -122,23 +122,24 @@ export async function applePayEventHandler(publicKey: string, options: Record<st
                   const source = typeof navigator !== 'undefined' && navigator?.userAgent ? `web:${navigator.userAgent}` : 'EmbeddedCheckout';
 
                   const body = {
-                    SessionId: sessionId,
-                    SettlementType: options.settlementType ?? 'Auto', 
-                    Intent: options.intent ?? 'Purchase',     
-                    CardEntry: options.cardEntry ?? 'ECommerce', 
-                    Order: options.order ?? 'Checkout',  
+                    sessionId: sessionId,
+                    settlementType: options.settlementType ?? 'Auto', 
+                    intent: options.intent ?? 'Purchase',     
+                    cardEntry: options.cardEntry ?? 'ECommerce', 
+                    order: options.order ?? 'Checkout',  
                     currencyCode: normalisedAmount.currencyNumeric,
+                    countryCode: normalisedCountry.numeric,
 
-                    PaymentReference: options.paymentReference ?? undefined,
-                    IdempotencyToken: crypto.randomUUID(),
-                    ValidityId: options.validityId ?? undefined,
-                    Channel: options.channel ?? 'Web',
-                    Source: source,
-                    SourceIpAddress: options.sourceIpAddress ?? undefined, 
-                    Url: url,
-                    BasketDescription: description,
+                    paymentReference: options.paymentReference ?? undefined,
+                    idempotencyToken: crypto.randomUUID(),
+                    validityId: options.validityId ?? undefined,
+                    channel: options.channel ?? 'Web',
+                    source: source,
+                    sourceIpAddress: options.sourceIpAddress ?? undefined, 
+                    url: url,
+                    basketDescription: description,
 
-                    Token: paymentData.token
+                    token: paymentData.token
                     };
 
                 const paymentResponse = await authorisedPayment(publicKey, body);
