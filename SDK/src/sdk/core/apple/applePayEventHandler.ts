@@ -144,7 +144,7 @@ export async function applePayEventHandler(publicKey: string, options: Record<st
 
                 const paymentResponse = await authorisedPayment(publicKey, body);
 
-                if (paymentResponse.message.toUpperCase() === "SUCCESS") {
+                if (paymentResponse.result.toUpperCase() === "SUCCESS") {
                     session.completePayment({
                         "status": APSession.STATUS_SUCCESS
                     });
