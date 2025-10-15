@@ -1,6 +1,6 @@
-import type { ChallengeOptions, ChallengeSize, ChallengeResult } from '../../types/challenge-window';
+import type { ChallengeOptions, ChallengeSize, ChallengeResult } from '../../../types/challenge-window';
 
-export function challenge(options: ChallengeOptions){
+export function openChallengeWindow(options: ChallengeOptions){
     const {
         acsUrl, creq,
         display = 'popup',

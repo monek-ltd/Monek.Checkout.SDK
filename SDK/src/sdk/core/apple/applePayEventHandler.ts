@@ -1,10 +1,10 @@
 import { authorisedPayment } from "./authorisedPayment";
 import { validateMerchantDomain } from "./validateMerchantDomain";
-import { validateCallbacks } from '../../core/init/validate';
+import { validateCallbacks } from '../../core/init/validateOptions';
 import type { InitCallbacks } from '../../types/callbacks';
 import type { AmountInput } from '../../types/transaction-details'
-import { normaliseCountryFull } from '../utils/countryHelper';
-import { normaliseAmount } from '../utils/currencyHelper';
+import { normaliseCountryFull } from '../utils/normaliseCountry';
+import { normaliseAmount } from '../utils/normaliseCurrency';
 
 export async function applePayEventHandler(publicKey: string, options: Record<string, any>, sessionId: string) {
 
@@ -44,13 +44,11 @@ export async function applePayEventHandler(publicKey: string, options: Record<st
         }
     };
 
-    // Create ApplePaySession
     (window as any).applePaySession = new APSession(14, applePayRequest);
     const session: InstanceType<typeof APSession> = (window as any).applePaySession;
 
 
     session.onvalidatemerchant = async (event:ApplePayJS.ApplePayValidateMerchantEvent) => {
-        // Request a merchant session
         const payload = {
             validationURL: event.validationURL,
             displayName: applePayRequest.total.label,

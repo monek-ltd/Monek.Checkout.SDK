@@ -1,34 +1,62 @@
 import { CheckoutComponent } from './CheckoutComponent';
 import { ExpressComponent } from './ExpressComponent';
-import { fetchAccessKeyDetails } from '../core/init/fetchAccessKey';
+import { fetchAccessKeyDetails, type AccessKeyDetails } from '../core/init/fetchAccessKey';
 
-export async function init(publicKey: string, options: Record<string, any> = {}) {
-    if (!publicKey) throw new Error('Missing public key');
+type PublicKey = string;
 
-    const defaultOptions = {
-        ...options,
-    };
+export type ComponentType = 'checkout' | 'express';
 
-    const accessKeyDetails = await fetchAccessKeyDetails(publicKey);
+export interface InitOptions {
+  [key: string]: unknown;
+}
 
-    return {
-        createComponent(
-            type: 'checkout' | 'express',
-            componentOptions = defaultOptions
-        ) {
-            const optionsWithApplePay = {
-                ...componentOptions,
-                applePayEnabled: accessKeyDetails.applePayEnabled, //TODO: Block button if Apple Pay is not enabled
-            };
+export interface ComponentOptions extends InitOptions {
+  applePayEnabled?: boolean;
+}
 
-            switch (type) {
-                case 'checkout':
-                    return new CheckoutComponent(publicKey, optionsWithApplePay);
-                case 'express':
-                    return new ExpressComponent(publicKey, optionsWithApplePay);
-                default:
-                    throw new Error(`Unsupported component type: ${type}`);
-            }
-        },
-    };
+function validatePublicKey(key: PublicKey): void {
+  if (!key) throw new Error('Missing public key');
+}
+
+function buildComponentOptions(
+  base: InitOptions,
+  access: AccessKeyDetails
+): ComponentOptions {
+  return {
+    ...base,
+    applePayEnabled: access.applePayEnabled, 
+  };
+}
+
+function createByType(
+  type: ComponentType,
+  publicKey: PublicKey,
+  options: ComponentOptions
+) {
+  switch (type) {
+    case 'checkout':
+      return new CheckoutComponent(publicKey, options);
+    case 'express':
+      return new ExpressComponent(publicKey, options);
+    default:
+      throw new Error(`Unsupported component type: ${type}`);
+  }
+}
+
+export async function init(publicKey: PublicKey, options: InitOptions = {}) {
+  validatePublicKey(publicKey);
+
+  const defaultOptions: InitOptions = { ...options };
+
+  const accessKeyDetails = await fetchAccessKeyDetails(publicKey);
+
+  return {
+    createComponent(
+      type: ComponentType,
+      componentOptions: InitOptions = defaultOptions
+    ) {
+      const mergedOptions = buildComponentOptions(componentOptions, accessKeyDetails);
+      return createByType(type, publicKey, mergedOptions);
+    },
+  };
 }

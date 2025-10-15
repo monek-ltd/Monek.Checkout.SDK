@@ -1,4 +1,4 @@
-import type { CompletionHook, CompletionContext, CompletionHelpers, Redirect } from '../../types/completion';
+import type { CompletionHook, CompletionContext, CompletionHelpers, Redirect } from '../../../types/completion';
 
 export async function runCompletionHook(
     hook: CompletionHook | undefined,
