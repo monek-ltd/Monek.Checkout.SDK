@@ -1,287 +1,338 @@
-import { interceptFormSubmit } from '../core/submitInterceptor';
-import { validateCallbacks } from '../core/init/validate';
-import { normaliseStyling, toCssVars, type StylingOptions } from '../types/styling';
-import { createSession } from '../core/init/createSession';
-import { getClientIpViaIpify } from '../core/utils/getClientIp';
-import { normaliseCountryFull } from '../core/utils/countryHelper';
+// CheckoutComponent.ts
 import type { InitCallbacks } from '../types/callbacks';
 import type { CompletionOptions } from '../types/completion';
 import type { Intent, CardEntry, Order, SettlementType } from '../types/transaction-details';
 import type { ChallengeOptions } from '../types/challenge-window';
+import type { FrameToParentMessage } from '../core/iframe/messages';
+import type { CheckoutPort } from '../types/checkout-port';
 
-export class CheckoutComponent {
-    private options: Record<string, any>;
-    private frameUrl: string;
-    private iframe?: HTMLIFrameElement;
-    private targetOrigin: string;
-    private publicKey: string;
-    private parentOrigin: string;
-    private onReady?: () => void;
-    private sessionId?: string; 
-    private onError?: (e: { code: string; message: string }) => void;
-    private unbindSubmit?: () => void; 
-    private containerEl?: Element;
-    private themeVars?: Record<string, string>;
-    private sourceIp: Promise<string | undefined>;
+import { interceptFormSubmit } from '../core/form/submitInterceptor';
+import { validateCallbacks } from '../core/init/validateOptions';
+import { normaliseStyling, toCssVars, type StylingOptions } from '../types/styling';
+import { createSession } from '../core/init/createSession';
+import { getClientIpViaIpify } from '../core/utils/getClientIp';
+import { normaliseCountryFull } from '../core/utils/normaliseCountry';
 
-    constructor(publicKey: string, options: Record<string, any>, onReady?: () => void, onError?: (e: { code: string; message: string }) => void) {
-        this.publicKey = publicKey;
-        this.options = options;
-        this.onReady = onReady;
-        this.onError = onError;
-        this.frameUrl =
-            this.options.frameUrl ||
-            'https://checkout-js.monek.com/src/hostedFields/hosted-fields.html';
+import { FrameMessenger } from '../core/iframe/FrameMessenger';
+import { buildFrameUrl, createSandboxedIframe } from '../core/iframe/createIframe';
+import { resolveForm } from '../core/form/resolveForm';
 
-        this.targetOrigin = new URL(this.frameUrl).origin; // the iframe's origin (strict check)
-        this.parentOrigin = window.location.origin;   // who we are (sent to the iframe)
+type PublicKey = string;
+type CSSVars = Record<string, string>;
 
-        validateCallbacks(this.options);
+export interface CheckoutInitOptions
+{
+  frameUrl?: string;
+  styling?: StylingOptions;
+  completion?: CompletionOptions;
+  callbacks?: InitCallbacks;
+  settlementType?: SettlementType;
+  storeCardDetails?: boolean;
+  intent?: Intent;
+  cardEntry?: CardEntry;
+  challenge?: ChallengeOptions;
+  order?: Order;
+  countryCode?: number | string;
+  validityId?: string;
+  channel?: string;
+  debug?: boolean;
+  [key: string]: unknown;
+}
 
-        if (this.options?.completion?.mode === 'client' && !this.options?.completion?.onSuccess) {
-            throw new Error('Client-side completion requires an onSuccess callback.');
+const DEFAULT_FRAME_URL = 'https://checkout-js.monek.com/src/hostedFields/hosted-fields.html';
+const DEFAULT_IFRAME_HEIGHT = '120px';
+const DEFAULT_TIMEOUT_MS = 20_000;
+const DEFAULT_COUNTRY = 826;
+const DEFAULT_CHANNEL = 'Web';
+
+// Normalize once so getters are trivial
+function normalizeOptions(optionsInput: CheckoutInitOptions = {}): CheckoutInitOptions
+{
+  return {
+    ...optionsInput,
+    settlementType: (optionsInput.settlementType ?? 'Auto') as SettlementType,
+    storeCardDetails: (optionsInput.storeCardDetails ?? false) as boolean,
+    intent: (optionsInput.intent ?? 'Purchase') as Intent,
+    cardEntry: (optionsInput.cardEntry ?? 'ECommerce') as CardEntry,
+    challenge: (optionsInput.challenge ?? { display: 'popup', size: 'medium' }) as ChallengeOptions,
+    order: (optionsInput.order ?? 'Checkout') as Order,
+    countryCode: optionsInput.countryCode ?? DEFAULT_COUNTRY,
+    channel: (optionsInput.channel as string | undefined) ?? DEFAULT_CHANNEL,
+  };
+}
+
+export class CheckoutComponent implements CheckoutPort
+{
+  private readonly options: CheckoutInitOptions;
+  private readonly publicKey: PublicKey;
+  private readonly callbacks?: InitCallbacks;
+
+  private frameUrl: string;
+  private readonly targetOrigin: string; // iframe origin
+  private readonly parentOrigin: string; // current window origin
+
+  private iframe?: HTMLIFrameElement;
+  private messenger?: FrameMessenger;
+  private containerEl?: Element;
+  private themeVars?: CSSVars;
+
+  private unbindSubmit?: () => void;
+  private boundHandleMessage?: (event: MessageEvent) => void;
+  private sessionId?: string;
+
+  private sourceIp: Promise<string | undefined>;
+
+  constructor(publicKey: PublicKey, options: CheckoutInitOptions)
+  {
+    this.publicKey = this.ensurePublicKey(publicKey);
+    this.options = normalizeOptions(options);
+
+    this.frameUrl = (this.options.frameUrl as string) || DEFAULT_FRAME_URL;
+    this.targetOrigin = new URL(this.frameUrl).origin;
+    this.parentOrigin = window.location.origin;
+
+    validateCallbacks(this.options);
+    this.callbacks = this.options.callbacks as InitCallbacks | undefined;
+
+    //TODO Move to Validate
+    if (this.options?.completion?.mode === 'client' && !this.options?.completion?.onSuccess)
+    {
+      throw new Error('Client-side completion requires an onSuccess callback.');
+    }
+
+    this.themeVars = toCssVars(normaliseStyling(this.options.styling as StylingOptions));
+    this.sourceIp = getClientIpViaIpify();
+
+    this.debug('CheckoutComponent: constructed', { frameUrl: this.frameUrl, targetOrigin: this.targetOrigin });
+  }
+
+  // ---------- Public getters ----------
+  public getCardEntry(): CardEntry { return this.options.cardEntry as CardEntry; }
+  public getCallbacks(): InitCallbacks
+  {
+    if (!this.callbacks)
+    {
+      throw new Error('Callbacks not set. Provide them during instantiation.');
+    }
+    return this.callbacks;
+  }
+  public getChallengeOptions(): ChallengeOptions { return this.options.challenge as ChallengeOptions; }
+  public getChannel(): string { return this.options.channel as string; }
+  public getCountryCode(): { alpha2: string; alpha3: string; numeric: string }
+  {
+    return normaliseCountryFull(this.options.countryCode as number | string);
+  }
+  public getIntent(): Intent { return this.options.intent as Intent; }
+  public getOrder(): Order { return this.options.order as Order; }
+  public getSettlementType(): SettlementType { return this.options.settlementType as SettlementType; }
+  public getStoreCardDetails(): boolean { return this.options.storeCardDetails as boolean; }
+  public getCompletionOptions(): CompletionOptions | undefined { return this.options.completion as CompletionOptions | undefined; }
+  public getSessionId(): string
+  {
+    if (!this.sessionId)
+    {
+      throw new Error('Session ID not set. Call mount() first.');
+    }
+    return this.sessionId;
+  }
+  public getPublicKey(): string { return this.publicKey; }
+  public getValidityId(): string | undefined { return this.options.validityId as string | undefined; }
+  public getSourceIp(): Promise<string | undefined> { return this.sourceIp; }
+
+  // ---------- Lifecycle ----------
+  async mount(selector: string): Promise<void>
+  {
+    this.debug('mount: start', { selector });
+
+    // idempotent
+    if (this.iframe)
+    {
+      this.destroy();
+    }
+
+    const mountRoot = document.querySelector(selector);
+    if (!mountRoot)
+    {
+      throw new Error(`[Checkout] Mount target '${selector}' not found`);
+    }
+
+    const hostingForm = mountRoot.closest('form');
+    if (!hostingForm)
+    {
+      throw new Error('[Checkout] Mount target must be inside a <form>');
+    }
+
+    this.containerEl = mountRoot;
+    mountRoot.innerHTML = '';
+
+    this.sessionId = await createSession(this.publicKey);
+
+    const iframeSrc = buildFrameUrl(this.frameUrl, {
+      parentOrigin: this.parentOrigin,
+      sessionId: this.sessionId,
+      publicKey: this.publicKey,
+    });
+
+    const iframe = createSandboxedIframe(iframeSrc, DEFAULT_IFRAME_HEIGHT);
+    mountRoot.appendChild(iframe);
+    this.iframe = iframe;
+
+    this.messenger = new FrameMessenger(
+      () => this.iframe?.contentWindow ?? null,
+      this.targetOrigin,
+      DEFAULT_TIMEOUT_MS
+    );
+
+    iframe.addEventListener('load', () =>
+    {
+      this.debug('iframe load');
+      if (this.themeVars)
+      {
+        this.messenger!.post({ type: 'configure', themeVars: this.themeVars! });
+      }
+    });
+
+    this.messenger.post({ type: 'PING_FROM_PARENT' });
+    this.intercept(hostingForm);
+
+    this.boundHandleMessage = this.handleMessage.bind(this);
+    window.addEventListener('message', this.boundHandleMessage);
+
+    this.debug('mount: complete', { sessionId: this.sessionId });
+  }
+
+  public intercept(formOrSelector?: string | HTMLFormElement)
+  {
+    this.unbindPrevious();
+
+    const hostingForm = resolveForm(this.containerEl, formOrSelector);
+    if (!hostingForm)
+    {
+      throw new Error('[Checkout] intercept: form not found');
+    }
+
+    this.unbindSubmit = interceptFormSubmit(hostingForm, this, Boolean(this.options.debug));
+    return this.unbindSubmit;
+  }
+
+  private unbindPrevious()
+  {
+    if (this.unbindSubmit)
+    {
+      this.unbindSubmit();
+      this.unbindSubmit = undefined;
+    }
+  }
+
+  public destroy()
+  {
+    if (this.boundHandleMessage)
+    {
+      window.removeEventListener('message', this.boundHandleMessage);
+      this.boundHandleMessage = undefined;
+    }
+    this.unbindPrevious();
+    this.iframe?.remove();
+    this.iframe = undefined;
+    this.messenger = undefined;
+    this.containerEl = undefined;
+    this.debug('destroyed');
+  }
+
+  // ---------- Iframe RPC ----------
+  public async requestExpiry(): Promise<string>
+  {
+    this.ensureIframeReady();
+    if (!this.messenger)
+    {
+      throw new Error('Iframe messenger not ready');
+    }
+
+    this.debug('requestExpiry: start');
+    this.messenger.post({ type: 'getExpiry' });
+
+    return this.messenger.waitFor(
+      (message: FrameToParentMessage) => message.type === 'expiry',
+      (message: FrameToParentMessage) => (message as Extract<FrameToParentMessage, { type: 'expiry' }>).expiry,
+      'Expiry retrieval timed out'
+    );
+  }
+
+  public async requestToken(): Promise<string>
+  {
+    this.ensureIframeReady();
+    if (!this.messenger)
+    {
+      throw new Error('Iframe messenger not ready');
+    }
+
+    this.debug('requestToken: start');
+    this.messenger.post({ type: 'tokenise' });
+
+    return this.messenger.waitFor(
+      (message: FrameToParentMessage) => message.type === 'tokenised',
+      (message: FrameToParentMessage) => (message as Extract<FrameToParentMessage, { type: 'tokenised' }>).cardToken,
+      'Tokenisation timed out'
+    );
+  }
+
+  // ---------- Internal helpers ----------
+  private ensurePublicKey(key: PublicKey): PublicKey
+  {
+    if (!key)
+    {
+      throw new Error('Missing public key');
+    }
+    return key;
+  }
+
+  private ensureIframeReady(): void
+  {
+    if (!this.iframe?.contentWindow)
+    {
+      throw new Error('Iframe not ready');
+    }
+  }
+
+  private handleMessage(event: MessageEvent)
+  {
+    if (event.origin !== this.targetOrigin)
+    {
+      return;
+    }
+
+    const data = (event.data || {}) as FrameToParentMessage;
+
+    switch (data.type)
+    {
+      case 'ready':
+      {
+        this.debug('iframe ready');
+        if (this.themeVars)
+        {
+          this.messenger?.post({ type: 'configure', themeVars: this.themeVars! });
         }
-
-        this.themeVars = toCssVars(normaliseStyling(this.options.styling as StylingOptions));
-
-        this.sourceIp = getClientIpViaIpify();
+        return;
+      }
+      case 'error':
+      {
+        const code = data.code ?? 'IFRAME_ERROR';
+        const message = data.message ?? 'Unknown error';
+        this.debug('iframe error', { code, message });
+        return;
+      }
+      default:
+        return;
     }
+  }
 
-    public getSettlementType(): SettlementType {
-        return this.options.settlementType ?? 'Auto' as SettlementType;
+  private debug(msg: string, data?: unknown)
+  {
+    if (!this.options.debug)
+    {
+      return;
     }
-
-    public getStoreCardDetails(): boolean {
-        return this.options.storeCardDetails ?? false as boolean;
-    }
-
-    public getIntent(): Intent {
-        return this.options.intent ?? 'Purchase' as Intent;
-    }
-
-    public getCardEntry(): CardEntry {
-        return this.options.cardEntry ?? 'ECommerce' as CardEntry;
-    }
-
-    public getChallengeOptions(): ChallengeOptions {
-        return this.options.challenge ?? { display: 'popup', size: 'medium' } as ChallengeOptions;
-    }
-
-    public getOrder(): Order {
-        return this.options.order ?? 'Checkout' as Order;
-    }
-
-    public getCountryCode(): { alpha2: string; alpha3: string; numeric: string } {
-        return normaliseCountryFull(this.options.countryCode ?? 826);
-    }
-
-    public getCallbacks(): InitCallbacks | undefined {
-        validateCallbacks(this.options);
-        let callbacks = this.options.callbacks as InitCallbacks | undefined;
-
-        if(!callbacks) {
-            throw new Error('Callbacks not set. Provide them during instantiation.');
-        }
-        return callbacks;
-    }
-
-    public getCompletionOptions(): CompletionOptions | undefined {
-        return this.options.completion as CompletionOptions | undefined;
-    }
-
-    public getSessionId(): string {
-        if (!this.sessionId) {
-            throw new Error('Session ID not set. Call mount() first.');
-        }
-        return this.sessionId;
-    }
-
-    public getPublicKey(): string {
-        if (!this.publicKey) {
-            throw new Error('Public key not set. Provide it during instantiation.');
-        }
-        return this.publicKey;
-    }
-
-    public getValidityId(): string | undefined {
-        return this.options.validityId as (string | undefined);
-    }
-
-    public getChannel(): string {
-        return (this.options.channel as string | undefined) ?? 'Web';
-    }
-
-    public getSourceIp(): Promise<string | undefined> {
-        return this.sourceIp;
-    }
-
-    private handleMessage = (evt: MessageEvent) => {
-        if (evt.origin !== this.targetOrigin) {
-            return;
-        }
-
-        const data = evt.data || {};
-
-        if (data?.type === 'ready') {
-            if (this.themeVars && this.iframe?.contentWindow) {
-                this.iframe.contentWindow.postMessage(
-                    { type: 'configure', themeVars: this.themeVars },
-                    this.targetOrigin
-                );
-            }
-            this.onReady?.();
-        }
-
-        if (data?.type === 'error') {
-            this.onError?.({ code: data.code ?? 'IFRAME_ERROR', message: data.message ?? 'Unknown error' });
-        }
-    };
-
-    async mount(selector: string) {
-
-        console.log('DEBUG - New Mount');
-
-        const root = document.querySelector(selector);
-        if (!root) throw new Error(`[Checkout] Mount target '\${selector}' not found`);
-
-        const form = root.closest('form');
-        if (!form) throw new Error('[Checkout] Mount target must be inside a <form>');
-
-        this.containerEl = root;
-
-        root.innerHTML = '';
-
-        this.sessionId = await createSession(this.publicKey);
-
-        const url = new URL(this.frameUrl);
-        url.searchParams.set('parentOrigin', this.parentOrigin);
-        url.searchParams.set('sessionId', this.sessionId);
-        url.searchParams.set('publicKey', this.publicKey);
-
-        const iframe = document.createElement('iframe');
-        iframe.src = url.toString();
-        iframe.style.width = '100%';
-        iframe.style.height = '120px';
-        iframe.style.border = '0';
-        iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');
-
-        root.appendChild(iframe);
-        this.iframe = iframe;
-
-        iframe.addEventListener('load', () => {
-            if (this.themeVars) {
-                this.iframe!.contentWindow!.postMessage(
-                    { type: 'configure', themeVars: this.themeVars },
-                    this.targetOrigin
-                );
-            }
-        });
-
-        iframe!.contentWindow!.postMessage({ type: 'PING_FROM_PARENT' }, '*');
-
-        this.intercept(form);
-
-        window.addEventListener('message', this.handleMessage);
-    }
-
-    intercept(formOrSelector?: string | HTMLFormElement) {
-
-        if (this.unbindSubmit) { this.unbindSubmit(); this.unbindSubmit = undefined; }
-
-        let form: HTMLFormElement | null = null;
-        if (typeof formOrSelector === 'string') {
-            form = document.querySelector<HTMLFormElement>(formOrSelector);
-        } else if (formOrSelector instanceof HTMLFormElement) {
-            form = formOrSelector;
-        } else if (this.containerEl) {
-            form = this.containerEl.closest('form') as HTMLFormElement | null;
-        }
-
-        if (!form) throw new Error('[Checkout] intercept: form not found');
-
-        this.unbindSubmit = interceptFormSubmit(form, this);
-
-        return this.unbindSubmit;
-    }
-
-    destroy() {
-        window.removeEventListener('message', this.handleMessage);
-        this.iframe?.remove();
-        this.iframe = undefined;
-    }
-
-    async requestExpiry(): Promise<string> {
-        if (!this.iframe?.contentWindow) {
-            throw new Error('Iframe not ready');
-        }
-
-        console.log('DEBUG - New Expiry Request');
-        this.iframe!.contentWindow!.postMessage({ type: 'getExpiry' }, this.targetOrigin);
-
-        return new Promise<string>((resolve, reject) => {
-            const onMsg = (evt: MessageEvent) => {
-                if (evt.origin !== this.targetOrigin) {
-                    return;
-                }
-                const data = evt.data || {};
-                if (data?.type === 'expiry') {
-                    window.removeEventListener('message', onMsg);
-                    clearTimeout(timer);
-                    resolve(data.expiry);
-                }
-                if (data?.type === 'error') {
-                    window.removeEventListener('message', onMsg);
-                    clearTimeout(timer);
-                    reject(new Error(data.message || 'Expiry retrieval failed'));
-                }
-            };
-
-            const timer = setTimeout(() => {
-                window.removeEventListener('message', onMsg);
-                reject(new Error('Expiry retrieval timed out'));
-            }, 20000);
-
-            window.addEventListener('message', onMsg);
-        });
-    }
-
-
-    async requestToken(): Promise<string> {
-        if (!this.iframe?.contentWindow) {
-            throw new Error('Iframe not ready');
-        }
-
-        console.log('DEBUG - New Token Request');
-        this.iframe!.contentWindow!.postMessage({ type: 'tokenise' }, this.targetOrigin);
-
-        return new Promise<string>((resolve, reject) => {
-            const onMsg = (evt: MessageEvent) => {
-                if (evt.origin !== this.targetOrigin) {
-                    return;
-                }
-
-                const data = evt.data || {};
-                if (data?.type === 'tokenised') {
-                    window.removeEventListener('message', onMsg);
-                    clearTimeout(timer);
-                    resolve(data.cardToken);
-                }
-                if (data?.type === 'error') {
-                    window.removeEventListener('message', onMsg);
-                    clearTimeout(timer);
-                    reject(new Error(data.message || 'Tokenisation failed'));
-                }
-            };
-
-
-            const timer = setTimeout(() => {
-                window.removeEventListener('message', onMsg);
-                reject(new Error('Tokenisation timed out'));
-            }, 20000);
-
-            window.addEventListener('message', onMsg);
-
-            console.log('DEBUG - Token request Complete');
-        });
-    }
+    // eslint-disable-next-line no-console
+    console.log(`[Checkout] ${msg}`, data ?? '');
+  }
 }

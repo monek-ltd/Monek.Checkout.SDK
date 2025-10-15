@@ -1,4 +1,4 @@
-import type { PaymentResponse, NormalisedPayment, CodeBucket } from '../../types/payment-payloads';
+import type { PaymentResponse, NormalisedPayment, CodeBucket } from './payment-payloads';
 
 export function normalisePayment(response: PaymentResponse): NormalisedPayment {
     const bucket = response.Result as CodeBucket || null;

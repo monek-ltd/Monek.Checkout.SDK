@@ -1,10 +1,10 @@
-import { API } from '../../config';
-import { collectBrowserInformation } from '../utils/collectBrowserData';
+import { API } from '../../../config';
+import { collectBrowserInformation } from '../../utils/collectBrowserData';
 import { getWindowSize } from './challenge'
-import { normaliseAmount } from '../utils/currencyHelper';
-import type { ThreeDSAuthenticationPayload } from '../../types/three-ds-payloads';
-import type { InitCallbacks } from '../../types/callbacks';
-import type { ChallengeSize } from '../../types/challenge-window'
+import { normaliseAmount } from '../../utils/normaliseCurrency';
+import type { ThreeDSAuthenticationPayload } from './three-ds-payloads';
+import type { InitCallbacks } from '../../../types/callbacks';
+import type { ChallengeSize } from '../../../types/challenge-window'
 
 export async function authenticate(apiKey: string, cardTokenId: string, sessionId: string, callbacks: InitCallbacks, expiry: string, size: ChallengeSize, ip: string | undefined): Promise<ThreeDSAuthenticationPayload> {
     

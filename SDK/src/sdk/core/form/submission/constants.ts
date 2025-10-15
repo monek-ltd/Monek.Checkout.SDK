@@ -1,0 +1,2 @@
+export const TIMEOUT_THREEDS_METHOD_MS = 10_000;
+export const TIMEOUT_CHALLENGE_MS = 120_000;

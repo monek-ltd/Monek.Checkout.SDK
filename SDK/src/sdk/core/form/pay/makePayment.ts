@@ -1,13 +1,13 @@
-import { API } from '../../config';
-import { CheckoutComponent } from '../../lib/CheckoutComponent';
-import { normaliseAmount } from '../utils/currencyHelper';
-import type { PaymentResponse } from '../../types/payment-payloads';
+import { API } from '../../../config';
+import type { CheckoutPort } from '../../../types/checkout-port';
+import { normaliseAmount } from '../../utils/normaliseCurrency';
+import type { PaymentResponse } from './payment-payloads';
 
 export async function pay(
     cardTokenId: string,
     sessionId: string,
     expiry: string,
-    component: CheckoutComponent): Promise<PaymentResponse> {
+    component: CheckoutPort): Promise<PaymentResponse> {
 
     const res = await fetch(`${API.base}/payment`, {
         method: 'POST',
@@ -36,7 +36,7 @@ async function buildPaymentRequest(
     cardTokenId: string,
     sessionId: string,
     expiry: string,
-    component: CheckoutComponent
+    component: CheckoutPort
     ) {
 
     const callbacks = component.getCallbacks();

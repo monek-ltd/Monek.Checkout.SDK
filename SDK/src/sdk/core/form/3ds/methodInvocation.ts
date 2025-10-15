@@ -1,4 +1,4 @@
-import { WsClient } from '../utils/ws';
+import { WsClient } from '../../client/WebSocketClient';
 
 export async function performThreeDSMethodInvocation(
     methodUrl?: string | null,
