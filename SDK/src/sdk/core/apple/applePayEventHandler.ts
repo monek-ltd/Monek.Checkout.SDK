@@ -17,7 +17,7 @@ import { buildApplePayPaymentRequest } from "./buildApplePayPaymentRequest";
 export type ApplePayHandlerOptions = Record<string, unknown> & {
   completion?: CompletionOptions;
   form?: HTMLFormElement;
-  label?: string;
+  appleMerchantLabel?: string;
   countryCode?: string | number;
 
   settlementType?: string;
@@ -43,7 +43,7 @@ export async function applePayEventHandler(
   logger.info("applePayEventHandler: start", {
     sessionId,
     hasForm: Boolean(options.form),
-    label: options.label,
+    label: options.appleMerchantLabel,
     countryCode: options.countryCode,
     settlementType: options.settlementType,
     intent: options.intent,
@@ -80,7 +80,7 @@ export async function applePayEventHandler(
   amountTimer.end({ amountMinor: normalisedAmount.minor, currencyAlpha3: normalisedAmount.currencyAlpha3, countryAlpha2: normalisedCountry.alpha2 });
 
   const applePayRequest = buildApplePayPaymentRequest({
-    label: options.label ?? "Pay Now",
+    label: options.appleMerchantLabel ?? "Merchant",
     currencyAlpha3: normalisedAmount.currencyAlpha3,
     countryAlpha2: normalisedCountry.alpha2,
     totalMajorString: String(normalisedAmount.major),

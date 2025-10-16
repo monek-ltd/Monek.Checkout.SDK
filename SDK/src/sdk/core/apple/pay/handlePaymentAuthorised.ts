@@ -33,27 +33,46 @@ export async function handlePaymentAuthorised(params: HandlePaymentAuthorisedPar
     callbacks,
     completionOptions,
     completionHelpers,
-    logger 
+    logger
   } = params;
+
+  logger.info("handlePaymentAuthorised: start", {
+    sessionId,
+    hasToken: Boolean(event?.payment?.token),
+    currencyCode: normalisedCurrencyNumeric,
+    countryCode: normalisedCountryNumeric
+  });
 
   const paymentData = event.payment;
 
   if (!paymentData?.token)
   {
+    logger.warn("handlePaymentAuthorised: missing token");
     session.completePayment({ status: (window as any).ApplePaySession.STATUS_FAILURE });
+
     await invokeCompletion(
       "onError",
       completionOptions,
       { sessionId, cardTokenId: "applepay", payment: { code: "NO_TOKEN" } },
       completionHelpers,
-      logger
+      logger.child("Completion")
     );
+
+    logger.info("handlePaymentAuthorised: end (no token)");
     return;
   }
 
   try
   {
-    const description = callbacks?.getDescription ? await callbacks.getDescription() : undefined;
+    let description: string | undefined;
+    try
+    {
+      description = callbacks?.getDescription ? await callbacks.getDescription() : undefined;
+    }
+    catch (error)
+    {
+      logger.warn("getDescription() threw; continuing without description", { error: (error as Error)?.message });
+    }
 
     const currentUrl =
       typeof window !== "undefined" && window?.location?.href
@@ -65,18 +84,20 @@ export async function handlePaymentAuthorised(params: HandlePaymentAuthorisedPar
         ? `web:${navigator.userAgent}`
         : "EmbeddedCheckout";
 
+    const idempotencyToken = safeUuid();
+
     const authoriseBody = {
       sessionId,
-      settlementType: options.settlementType ?? "Auto",
-      intent: options.intent ?? "Purchase",
-      cardEntry: options.cardEntry ?? "ECommerce",
-      order: options.order ?? "Checkout",
+      settlementType: (options as any).settlementType ?? "Auto",
+      intent: (options as any).intent ?? "Purchase",
+      cardEntry: (options as any).cardEntry ?? "ECommerce",
+      order: (options as any).order ?? "Checkout",
 
       currencyCode: normalisedCurrencyNumeric,
       countryCode: normalisedCountryNumeric,
 
       paymentReference: (options as any).paymentReference ?? undefined,
-      idempotencyToken: safeUuid(),
+      idempotencyToken,
       validityId: (options as any).validityId ?? undefined,
       channel: (options as any).channel ?? "Web",
       source,
@@ -84,37 +105,78 @@ export async function handlePaymentAuthorised(params: HandlePaymentAuthorisedPar
       url: currentUrl,
       basketDescription: description,
 
-      token: paymentData.token,
+      token: paymentData.token
     };
 
+    logger.debug("authorise request (redacted)", {
+      sessionId,
+      settlementType: authoriseBody.settlementType,
+      intent: authoriseBody.intent,
+      cardEntry: authoriseBody.cardEntry,
+      order: authoriseBody.order,
+      currencyCode: authoriseBody.currencyCode,
+      countryCode: authoriseBody.countryCode,
+      paymentReference: authoriseBody.paymentReference,
+      idempotencyToken,
+      validityId: authoriseBody.validityId,
+      channel: authoriseBody.channel,
+      hasToken: true,
+      tokenTransactionId: paymentData?.token?.transactionIdentifier ?? undefined
+    });
+
+    const timer = logger.time("authorisedPayment");
     const paymentResponse = await authorisedPayment(publicKey, authoriseBody);
+    timer.end({ result: paymentResponse?.result });
+
     const approved = String(paymentResponse?.result ?? "").toUpperCase() === "SUCCESS";
 
     session.completePayment({
-      status: approved ? (window as any).ApplePaySession.STATUS_SUCCESS : (window as any).ApplePaySession.STATUS_FAILURE,
+      status: approved
+        ? (window as any).ApplePaySession.STATUS_SUCCESS
+        : (window as any).ApplePaySession.STATUS_FAILURE
     });
+    logger.info("session.completePayment called", { approved });
 
     const completionContext: CompletionContext = {
       sessionId,
       cardTokenId: paymentData?.token?.transactionIdentifier ?? "applepay",
-      auth: { applePay: event.payment?.token },
-      payment: paymentResponse,
+      auth: { applePay: redactedApplePayToken(paymentData?.token) },
+      payment: paymentResponse
     };
+
+    await new Promise(resolve => setTimeout(resolve, 150));
 
     if (approved)
     {
-      await invokeCompletion("onSuccess", completionOptions, completionContext, completionHelpers, logger);
+      logger.info("invoking completion.onSuccess");
+      await invokeCompletion(
+        "onSuccess",
+        completionOptions,
+        completionContext,
+        completionHelpers,
+        logger.child("Completion")
+      );
     }
     else
     {
-      await invokeCompletion("onError", completionOptions, completionContext, completionHelpers, logger);
+      logger.warn("invoking completion.onError (not approved)");
+      await invokeCompletion(
+        "onError",
+        completionOptions,
+        completionContext,
+        completionHelpers,
+        logger.child("Completion")
+      );
     }
+
+    logger.info("handlePaymentAuthorised: end", { approved });
   }
   catch (error)
   {
-    logger.error("Error during authorising payment: ", error);
+    logger.error("Error during authorising payment", { message: (error as Error)?.message });
 
     session.completePayment({ status: (window as any).ApplePaySession.STATUS_FAILURE });
+    logger.info("session.completePayment called", { approved: false });
 
     await invokeCompletion(
       "onError",
@@ -122,12 +184,36 @@ export async function handlePaymentAuthorised(params: HandlePaymentAuthorisedPar
       {
         sessionId,
         cardTokenId: "applepay",
-        payment: { code: "AUTHORISE_EXCEPTION", error },
+        payment: { code: "AUTHORISE_EXCEPTION", error: (error as Error)?.message ?? String(error) }
       },
       completionHelpers,
-      logger
+      logger.child("Completion")
     );
+
+    logger.info("handlePaymentAuthorised: end (exception)");
   }
+}
+
+function redactedApplePayToken(token: any): Record<string, unknown> | undefined
+{
+  if (!token)
+  {
+    return undefined;
+  }
+
+  const transactionIdentifier = token?.transactionIdentifier ?? undefined;
+  const paymentMethodType = token?.paymentMethod?.type ?? undefined;
+  const displayName = token?.paymentMethod?.displayName ?? undefined;
+  const network = token?.paymentMethod?.network ?? undefined;
+
+  return {
+    transactionIdentifier,
+    paymentMethod: {
+      type: paymentMethodType,
+      displayName,
+      network
+    }
+  };
 }
 
 function safeUuid(): string
@@ -138,11 +224,4 @@ function safeUuid(): string
     if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")
     {
       // @ts-ignore
-      return crypto.randomUUID();
-    }
-  }
-  catch
-  {
-  }
-  return `sdk-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
+      return crypto.randomUUI
