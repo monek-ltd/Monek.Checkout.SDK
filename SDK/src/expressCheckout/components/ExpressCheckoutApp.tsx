@@ -53,7 +53,6 @@ const ExpressCheckoutApp: React.FC = () => {
 
         const onMessage = async (evt: MessageEvent) => {
             iframeLogger.debug('Got message:', { origin: evt.origin, data: evt.data });
-            // Strict origin check unless we’re in dev fallback '*'
             if (parentOrigin !== '*' && evt.origin !== parentOrigin) {
                 iframeLogger.error('origin mismatch');
                 return;
