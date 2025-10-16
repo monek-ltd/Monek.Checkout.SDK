@@ -33,7 +33,7 @@ export async function handlePaymentAuthorised(params: HandlePaymentAuthorisedPar
     callbacks,
     completionOptions,
     completionHelpers,
-    logger
+    logger 
   } = params;
 
   logger.info("handlePaymentAuthorised: start", {
@@ -212,7 +212,7 @@ function redactedApplePayToken(token: any): Record<string, unknown> | undefined
       type: paymentMethodType,
       displayName,
       network
-    }
+  }
   };
 }
 
