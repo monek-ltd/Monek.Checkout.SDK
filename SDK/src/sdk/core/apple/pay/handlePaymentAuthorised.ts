@@ -224,4 +224,11 @@ function safeUuid(): string
     if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function")
     {
       // @ts-ignore
-      return crypto.randomUUI
+       return crypto.randomUUID();
+    }
+  }
+  catch
+  {
+  }
+  return `sdk-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
