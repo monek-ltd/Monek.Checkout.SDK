@@ -1,7 +1,12 @@
 import React, { useEffect, useMemo, useCallback } from 'react'
 
+import { Logger, makeLogger } from '../../sdk/core/utils/Logger';
+import type { ConfigureLoggerMessage } from '../../sdk/core/iframe/messages';
+
 function getParams() { return new URLSearchParams(window.location.search); }
 function getParentOrigin() { return getParams().get('parentOrigin') || '*'; }
+
+let iframeLogger: Logger = makeLogger('Iframe', false, 'silent');
 
 declare module 'react' {
     namespace JSX {
@@ -41,6 +46,35 @@ const ExpressCheckoutApp: React.FC = () => {
             console.log('[ExpressCheckout] Apple Pay not available')
         }
     }, [])
+
+     useEffect(() => {
+        // Announce readiness
+        window.parent.postMessage({ type: 'ready' }, parentOrigin);
+
+        const onMessage = async (evt: MessageEvent) => {
+            iframeLogger.debug('Got message:', { origin: evt.origin, data: evt.data });
+            // Strict origin check unless we’re in dev fallback '*'
+            if (parentOrigin !== '*' && evt.origin !== parentOrigin) {
+                iframeLogger.error('origin mismatch');
+                return;
+            }
+
+            const data = evt.data || {}; 
+            
+            if (data.type === 'configure' && data.themeVars) {
+                //TODO
+            }
+            else if (data.type === 'configureLogger') {
+                const msg = data as ConfigureLoggerMessage;
+                iframeLogger = makeLogger(msg.namespaceBase ?? 'Iframe', msg.enabled, msg.level)
+                    .withStaticContext(msg.sessionId ? { sessionId: msg.sessionId } : {});
+                iframeLogger.info('logger configured');
+            }
+        };
+
+        window.addEventListener('message', onMessage);
+        return () => window.removeEventListener('message', onMessage);
+    }, [parentOrigin]);
 
     const handleApplePayClick = useCallback(() => {
         window.parent.postMessage({ type: 'ap-click' }, parentOrigin);

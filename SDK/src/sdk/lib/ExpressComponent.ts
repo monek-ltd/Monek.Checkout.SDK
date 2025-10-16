@@ -3,6 +3,8 @@ import { ensureApplePayReady, canMakeApplePayments } from '../core/apple/applePa
 import { createSession } from '../core/init/createSession';
 
 import { buildFrameUrl, createSandboxedIframe } from '../core/iframe/createIframe';
+import { FrameMessenger } from '../core/iframe/FrameMessenger';
+import { Logger, makeLogger, type LogLevel } from '../core/utils/Logger';
 
 type PublicKey = string;
 
@@ -10,11 +12,13 @@ export interface ExpressInitOptions
 {
   frameUrl?: string;
   debug?: boolean;
+  logLevel?: string;
   [key: string]: unknown;
 }
 
 const DEFAULT_FRAME_URL = 'https://checkout-js.monek.com/src/expressCheckout/express-checkout.html';
 const DEFAULT_IFRAME_HEIGHT = '65px';
+const DEFAULT_TIMEOUT_MS = 20_000;
 
 export class ExpressComponent
 {
@@ -26,7 +30,10 @@ export class ExpressComponent
   private readonly parentOrigin: string;
 
   private iframe?: HTMLIFrameElement;
+  private messenger?: FrameMessenger;
   private boundWindowMessageHandler?: (event: MessageEvent) => void;
+
+  private readonly logger: Logger;
 
   constructor(publicKey: PublicKey, options: ExpressInitOptions)
   {
@@ -37,7 +44,8 @@ export class ExpressComponent
     this.targetOrigin = new URL(this.frameUrl).origin;
     this.parentOrigin = window.location.origin;
 
-    this.debug('ExpressComponent: constructed', { frameUrl: this.frameUrl, targetOrigin: this.targetOrigin });
+    this.logger = makeLogger('ExpressComponent', Boolean(this.options.debug), (this.options.logLevel ?? 'debug') as LogLevel);
+    this.debug('constructed', { frameUrl: this.frameUrl, targetOrigin: this.targetOrigin });
   }
 
   public async mount(selector: string): Promise<void>
@@ -52,18 +60,19 @@ export class ExpressComponent
     const mountRoot = document.querySelector(selector);
     if (!mountRoot)
     {
-      throw new Error(`[Express] Mount target '${selector}' not found`);
+      throw new Error(`Mount target '${selector}' not found`);
     }
 
     const hostingForm = mountRoot.closest('form') as HTMLFormElement | null;
     if (!hostingForm)
     {
-      throw new Error('[Express] Mount target must be inside a <form>');
+      throw new Error('Mount target must be inside a <form>');
     }
 
     mountRoot.innerHTML = '';
 
     const sessionId = await createSession(this.publicKey);
+    this.debug('created session', { sessionId });
 
     const iframeSrc = buildFrameUrl(this.frameUrl, {
       parentOrigin: this.parentOrigin,
@@ -77,6 +86,27 @@ export class ExpressComponent
     mountRoot.appendChild(iframe);
     this.iframe = iframe;
 
+    this.messenger = new FrameMessenger(
+      () => this.iframe?.contentWindow ?? null,
+      this.targetOrigin,
+      DEFAULT_TIMEOUT_MS
+    );
+
+    iframe.addEventListener('load', () =>
+    {
+      this.debug('iframe load');
+
+      this.messenger!.post({ type: 'PING_FROM_PARENT' });
+
+      this.messenger!.post({
+        type: 'configureLogger',
+        enabled: Boolean(this.options.debug),
+        level: (this.options.logLevel ?? 'debug') as LogLevel,
+        namespaceBase: 'Express-Iframe',
+        sessionId,
+      });
+    });
+
     const onWindowMessage = async (event: MessageEvent) =>
     {
       if (event.origin !== this.targetOrigin)
@@ -84,21 +114,42 @@ export class ExpressComponent
         return;
       }
 
-      const messageData = event.data || {};
-      if (messageData.type === 'ap-click')
+      const data = event.data || {};
+
+      if (data.type === 'ready')
+      {
+        this.debug('iframe ready (express)');
+        this.messenger?.post({
+          type: 'configureLogger',
+          enabled: Boolean(this.options.debug),
+          level: (this.options.logLevel ?? 'debug') as LogLevel,
+          namespaceBase: 'Express-Iframe',
+          sessionId,
+        });
+        return;
+      }
+
+      if (data.type === 'ap-click')
       {
         this.debug('Apple Pay click received');
 
         const isApplePayReady = await ensureApplePayReady();
         if (!isApplePayReady || !canMakeApplePayments())
         {
-          // eslint-disable-next-line no-console
-          console.warn('[ApplePay] Apple Pay is not available.');
+          this.logger.warn('Apple Pay is not available');
           return;
         }
 
-        applePayEventHandler(this.publicKey, this.options as Record<string, unknown>, sessionId);
+        await applePayEventHandler(
+          this.publicKey,
+          this.options as Record<string, unknown>,
+          sessionId,
+          this.logger.child('ApplePayEventHandler')
+        );
+        return;
       }
+      
+      this.debug('unhandled message from express iframe', { data });
     };
 
     this.boundWindowMessageHandler = onWindowMessage;
@@ -117,6 +168,7 @@ export class ExpressComponent
 
     this.iframe?.remove();
     this.iframe = undefined;
+    this.messenger = undefined;
 
     this.debug('destroyed');
   }
@@ -134,12 +186,6 @@ export class ExpressComponent
 
   private debug(message: string, data?: unknown): void
   {
-    if (!this.options.debug)
-    {
-      return;
-    }
-
-    // eslint-disable-next-line no-console
-    console.log(`[Express] ${message}`, data ?? '');
+    this.logger.debug(message, data ?? '');
   }
 }

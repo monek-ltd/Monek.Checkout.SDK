@@ -86,6 +86,6 @@ async function buildAuthenticationRequest(cardTokenId: string, sessionId: string
       cardExpiryMonth: expiryMonth,
       cardExpiryYear: expiryYear,
       challengeWindowSize: getWindowSize(size),
-      //challengePreference: "03"
+      challengePreference: "03"
     };
 }

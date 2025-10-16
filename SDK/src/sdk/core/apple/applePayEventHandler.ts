@@ -1,181 +1,217 @@
-import { authorisedPayment } from "./authorisedPayment";
-import { validateMerchantDomain } from "./validateMerchantDomain";
-import { validateCallbacks } from '../../core/init/validateOptions';
-import type { InitCallbacks } from '../../types/callbacks';
-import type { AmountInput } from '../../types/transaction-details'
-import { normaliseCountryFull } from '../utils/normaliseCountry';
-import { normaliseAmount } from '../utils/normaliseCurrency';
+import { validateCallbacks } from "../../core/init/validateOptions";
+import type { InitCallbacks } from "../../types/callbacks";
+import type { AmountInput } from "../../types/transaction-details";
+import type { CompletionHelpers, CompletionOptions } from "../../types/completion";
 
-export async function applePayEventHandler(publicKey: string, options: Record<string, any>, sessionId: string) {
+import { normaliseCountryFull } from "../utils/normaliseCountry";
+import { normaliseAmount } from "../utils/normaliseCurrency";
+import { Logger } from "../utils/Logger";
 
-    const APSession = (window as any).ApplePaySession;
-    if (!APSession) {
-        console.warn('[ApplePay] ApplePaySession is not available.');
-        return;
-    }
+import { buildCompletionHelpers } from "../form/submission/buildCompletionHelpers";
 
-    const callbacks = getCallbacks(options);
+import { handleValidateSession } from "./validate/handleValidateSession";
+import { handlePaymentAuthorised } from "./pay/handlePaymentAuthorised";
+import { invokeCompletion } from "./invokeCompletion";
+import { buildApplePayPaymentRequest } from "./buildApplePayPaymentRequest";
 
-    const amount =
-        callbacks?.getAmount
-            ? await callbacks.getAmount()
-            : { minor: 0, currency: '826' } as AmountInput;
+export type ApplePayHandlerOptions = Record<string, unknown> & {
+  completion?: CompletionOptions;
+  form?: HTMLFormElement;
+  label?: string;
+  countryCode?: string | number;
 
-    const normalisedAmount = normaliseAmount(amount);
-    const normalisedCountry = normaliseCountryFull(options.countryCode ?? 'GB');
+  settlementType?: string;
+  intent?: string;
+  cardEntry?: string;
+  order?: string;
 
-    const applePayRequest: ApplePayJS.ApplePayPaymentRequest = {
-        merchantCapabilities: [
-            'supports3DS',
-            'supportsDebit',
-            'supportsCredit'
-        ],
-        supportedNetworks: [
-            'visa',
-            'masterCard',
-            'amex'
-        ],
-        countryCode: normalisedCountry.alpha2,
-        currencyCode: normalisedAmount.currencyAlpha3,
-        total: {
-            label: options.label || 'Pay Now',
-            type: 'final',
-            amount: String(normalisedAmount.major)
-        }
-    };
+  paymentReference?: string;
+  validityId?: string;
+  channel?: string;
+  sourceIpAddress?: string;
+};
 
-    (window as any).applePaySession = new APSession(14, applePayRequest);
-    const session: InstanceType<typeof APSession> = (window as any).applePaySession;
+const APPLE_PAY_VERSION = 14;
 
+export async function applePayEventHandler(
+  publicKey: string,
+  options: ApplePayHandlerOptions,
+  sessionId: string,
+  logger: Logger
+): Promise<void>
+{
+  logger.info("applePayEventHandler: start", {
+    sessionId,
+    hasForm: Boolean(options.form),
+    label: options.label,
+    countryCode: options.countryCode,
+    settlementType: options.settlementType,
+    intent: options.intent,
+    cardEntry: options.cardEntry,
+    order: options.order,
+    channel: options.channel,
+  });
 
-    session.onvalidatemerchant = async (event:ApplePayJS.ApplePayValidateMerchantEvent) => {
-        const payload = {
-            validationURL: event.validationURL,
-            displayName: applePayRequest.total.label,
-            parentUrl: document.location.hostname,
-            merchantRef: publicKey,
-            version: "V2"
-        };
+  const ApplePaySessionCtor = (window as any).ApplePaySession;
+  if (!ApplePaySessionCtor)
+  {
+    logger.warn("ApplePaySession is not available.");
+    return;
+  }
 
-        console.log(`Payload for validating merchat URL is: ${JSON.stringify(payload)}`)
+  let callbacks: InitCallbacks;
+  try
+  {
+    callbacks = getCallbacksOrThrow(options);
+  }
+  catch (error)
+  {
+    logger.error("callbacks validation failed", { message: (error as Error)?.message });
+    throw error;
+  }
 
-        const merchantSession = await validateMerchantDomain(payload);
+  const amountTimer = logger.time("normalise amount/country");
+  const amountInput: AmountInput = callbacks?.getAmount
+    ? await callbacks.getAmount()
+    : { minor: 0, currency: "826" };
 
-        if (merchantSession?.status === '200') {
+  const normalisedAmount = normaliseAmount(amountInput);
+  const normalisedCountry = normaliseCountryFull(options.countryCode ?? "GB");
+  amountTimer.end({ amountMinor: normalisedAmount.minor, currencyAlpha3: normalisedAmount.currencyAlpha3, countryAlpha2: normalisedCountry.alpha2 });
 
-            console.log(`Merchant URL ${payload.validationURL} has been validated`);
-            
-            const appleSession = (merchantSession as any).session ?? merchantSession;
+  const applePayRequest = buildApplePayPaymentRequest({
+    label: options.label ?? "Pay Now",
+    currencyAlpha3: normalisedAmount.currencyAlpha3,
+    countryAlpha2: normalisedCountry.alpha2,
+    totalMajorString: String(normalisedAmount.major),
+  });
+  logger.debug("built Apple Pay request", { request: applePayRequest });
 
-            session.completeMerchantValidation(appleSession);
+  (window as any).applePaySession = new ApplePaySessionCtor(APPLE_PAY_VERSION, applePayRequest);
+  const session: InstanceType<typeof ApplePaySessionCtor> = (window as any).applePaySession;
+  logger.info("Apple Pay session created", { version: APPLE_PAY_VERSION });
 
-            console.log("Validation Complete");
-        } else {
-            console.error("Merchant could not be validated");
-        }
-    };
-    
-    session.onpaymentmethodselected = () => {
-        const update: ApplePayJS.ApplePayPaymentMethodUpdate = {
-            newTotal: {
-                label: applePayRequest.total.label,
-                type: applePayRequest.total.type, // Use the original type or map event.type if needed
-                amount: applePayRequest.total.amount,
-            }
-        };
+  const hostForm = resolveHostForm(options.form, logger);
+  const completionHelpers: CompletionHelpers = buildCompletionHelpers(hostForm);
+  const completionOptions = options.completion;
 
-        session.completePaymentMethodSelection(update);
-    };
+  logger.debug("wiring session handlers");
+  session.onvalidatemerchant = async (event: ApplePayJS.ApplePayValidateMerchantEvent) =>
+  {
+    const childLogger = logger.child("HandleValidateSession");
+    childLogger.debug("onvalidatemerchant: start", { validationURL: event.validationURL });
 
-    session.onshippingmethodselected = () => {
-        const update: ApplePayJS.ApplePayShippingMethodUpdate = {
-            newTotal: {
-                label: applePayRequest.total.label,
-                type: applePayRequest.total.type,
-                amount: applePayRequest.total.amount,
-            }
-        }
-        session.completeShippingMethodSelection(update);
-    };
+    await handleValidateSession({
+      session,
+      event,
+      publicKey,
+      displayName: applePayRequest.total.label,
+      logger: childLogger,
+    });
 
-    session.onshippingcontactselected = () => {
-        const update: ApplePayJS.ApplePayShippingMethodUpdate = {
-            newTotal: {
-                label: applePayRequest.total.label,
-                type: applePayRequest.total.type,
-                amount: applePayRequest.total.amount,
-            }
-        }
-        session.completeShippingContactSelection(update);
-    };
+    childLogger.debug("onvalidatemerchant: end");
+  };
 
-    session.onpaymentauthorized = async (event: ApplePayJS.ApplePayPaymentAuthorizedEvent) => {
-        const paymentData = event.payment;
+  session.onpaymentmethodselected = () =>
+  {
+    logger.debug("onpaymentmethodselected");
+    session.completePaymentMethodSelection({
+      newTotal: {
+        label: applePayRequest.total.label,
+        type: applePayRequest.total.type,
+        amount: applePayRequest.total.amount,
+      },
+    });
+  };
 
-        if (paymentData.token) {
+  session.onshippingmethodselected = () =>
+  {
+    logger.debug("onshippingmethodselected");
+    session.completeShippingMethodSelection({
+      newTotal: {
+        label: applePayRequest.total.label,
+        type: applePayRequest.total.type,
+        amount: applePayRequest.total.amount,
+      },
+    });
+  };
 
-            try {
-                  const description = callbacks?.getDescription ? await callbacks.getDescription() : undefined;
-                  const url = typeof window !== 'undefined' && window?.location?.href ? window.location.href : undefined;
-                  const source = typeof navigator !== 'undefined' && navigator?.userAgent ? `web:${navigator.userAgent}` : 'EmbeddedCheckout';
+  session.onshippingcontactselected = () =>
+  {
+    logger.debug("onshippingcontactselected");
+    session.completeShippingContactSelection({
+      newTotal: {
+        label: applePayRequest.total.label,
+        type: applePayRequest.total.type,
+        amount: applePayRequest.total.amount,
+      },
+    });
+  };
 
-                  const body = {
-                    sessionId: sessionId,
-                    settlementType: options.settlementType ?? 'Auto', 
-                    intent: options.intent ?? 'Purchase',     
-                    cardEntry: options.cardEntry ?? 'ECommerce', 
-                    order: options.order ?? 'Checkout',  
-                    currencyCode: normalisedAmount.currencyNumeric,
-                    countryCode: normalisedCountry.numeric,
+  session.onpaymentauthorized = async (event: ApplePayJS.ApplePayPaymentAuthorizedEvent) =>
+  {
+    const childLogger = logger.child("HandlePaymentAuthorised");
+    childLogger.debug("onpaymentauthorized: start", {
+      hasToken: Boolean(event?.payment?.token),
+      sessionId,
+    });
 
-                    paymentReference: options.paymentReference ?? undefined,
-                    idempotencyToken: crypto.randomUUID(),
-                    validityId: options.validityId ?? undefined,
-                    channel: options.channel ?? 'Web',
-                    source: source,
-                    sourceIpAddress: options.sourceIpAddress ?? undefined, 
-                    url: url,
-                    basketDescription: description,
+    await handlePaymentAuthorised({
+      session,
+      event,
+      publicKey,
+      sessionId,
+      normalisedCurrencyNumeric: normalisedAmount.currencyNumeric,
+      normalisedCountryNumeric: normalisedCountry.numeric,
+      options,
+      callbacks,
+      completionOptions,
+      completionHelpers,
+      logger: childLogger,
+    });
 
-                    token: paymentData.token
-                    };
+    childLogger.debug("onpaymentauthorized: end");
+  };
 
-                const paymentResponse = await authorisedPayment(publicKey, body);
+  session.oncancel = async () =>
+  {
+    logger.info("session cancelled by user");
+    await invokeCompletion("onCancel", completionOptions, { sessionId, cardTokenId: "applepay" }, completionHelpers, logger.child("Completion"));
+  };
 
-                if (paymentResponse.result.toUpperCase() === "SUCCESS") {
-                    session.completePayment({
-                        "status": APSession.STATUS_SUCCESS
-                    });
-                } else {
-                    session.completePayment({
-                        "status": APSession.STATUS_FAILURE
-                    });
-                }
-            } 
-            catch (error) {
-                console.error("Error during authorising payment: ", error);
-
-                session.completePayment({
-                    "status": APSession.STATUS_FAILURE
-                });
-            }
-        }
-    };
-
-    session.oncancel = () => {
-        console.log("Session Cancelled.");
-    };
-
-    session.begin();
-    
+  logger.info("session.begin");
+  session.begin();
+  logger.info("applePayEventHandler: ready");
 }
 
-function getCallbacks(options: Record<string, any>): InitCallbacks | undefined {
-    validateCallbacks(options);
-    let callbacks = options.callbacks as InitCallbacks | undefined;
+function resolveHostForm(formFromOptions: HTMLFormElement | undefined, logger: Logger): HTMLFormElement
+{
+  if (formFromOptions)
+  {
+    logger.debug("resolveHostForm: using provided form");
+    return formFromOptions;
+  }
 
-    if (!callbacks) {
-        throw new Error('Callbacks not set. Provide them during instantiation.');
-    }
-    return callbacks;
+  const existingForm = document.querySelector("form");
+  if (existingForm)
+  {
+    logger.debug("resolveHostForm: using first form in document");
+    return existingForm as HTMLFormElement;
+  }
+
+  logger.warn("resolveHostForm: no form found, creating one");
+  const createdForm = document.createElement("form");
+  document.body.appendChild(createdForm);
+  return createdForm;
+}
+
+function getCallbacksOrThrow(options: Record<string, unknown>): InitCallbacks
+{
+  validateCallbacks(options);
+  const callbacks = options.callbacks as InitCallbacks | undefined;
+  if (!callbacks)
+  {
+    throw new Error("Callbacks not set. Provide them during instantiation.");
+  }
+  return callbacks;
 }

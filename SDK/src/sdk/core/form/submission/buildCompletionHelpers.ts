@@ -9,8 +9,6 @@ export function buildCompletionHelpers(form: HTMLFormElement): CompletionHelpers
     redirect: (input: Redirect | string) =>
     {
         const r: Redirect = (typeof input === 'string' ? { url: input } : input) as Redirect;
-        
-        const u = (r.url ?? '').toString().trim();
 
         if (!r.method) r.method = 'GET'
         performRedirect(r, form);

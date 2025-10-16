@@ -2,6 +2,9 @@ import React, { useEffect, useMemo, useRef, useCallback } from 'react'
 import { API } from '../../sdk/config';
 import '../hosted-fields.css';
 
+import { Logger, makeLogger } from '../../sdk/core/utils/Logger';
+import type { ConfigureLoggerMessage } from '../../sdk/core/iframe/messages';
+
 function getParams() { return new URLSearchParams(window.location.search); }
 function getParentOrigin() { return getParams().get('parentOrigin') || '*'; }
 function getSessionId() { return getParams().get('sessionId') || ''; }
@@ -13,6 +16,8 @@ const applyThemeVars = (vars: Record<string, string>) => {
         root.style.setProperty(k, String(v), 'important');
     }
 };
+
+let iframeLogger: Logger = makeLogger('Iframe', false, 'silent');
 
 const HostedFieldsApp: React.FC = () => {
     const panRef = useRef<HTMLInputElement>(null);
@@ -67,15 +72,23 @@ const HostedFieldsApp: React.FC = () => {
         window.parent.postMessage({ type: 'ready' }, parentOrigin);
 
         const onMessage = async (evt: MessageEvent) => {
-            console.log('[iframe] got message:', { origin: evt.origin, data: evt.data });
+            iframeLogger.debug('Got message:', { origin: evt.origin, data: evt.data });
             // Strict origin check unless we’re in dev fallback '*'
             if (parentOrigin !== '*' && evt.origin !== parentOrigin) {
-                console.log('[iframe] origin mismatch');
+                iframeLogger.error('origin mismatch');
                 return;
             }
 
-            const data = evt.data || {}; if (data.type === 'configure' && data.themeVars) {
+            const data = evt.data || {}; 
+            
+            if (data.type === 'configure' && data.themeVars) {
                 applyThemeVars(data.themeVars as Record<string, string>);
+            }
+            else if (data.type === 'configureLogger') {
+                const msg = data as ConfigureLoggerMessage;
+                iframeLogger = makeLogger(msg.namespaceBase ?? 'Iframe', msg.enabled, msg.level)
+                    .withStaticContext(msg.sessionId ? { sessionId: msg.sessionId } : {});
+                iframeLogger.info('logger configured');
             }
             else if (data.type === 'tokenise') {
                 try {
@@ -112,7 +125,7 @@ const HostedFieldsApp: React.FC = () => {
         return () => window.removeEventListener('message', onMessage);
     }, [parentOrigin, tokenise]);
 
-    // --- light formatting helpers (optional niceties) ---
+    // --- light formatting helpers ---
     const handlePanInput = (e: React.ChangeEvent<HTMLInputElement>) => {
         // group digits (#### #### #### #### ###)
         const digits = e.target.value.replace(/\D+/g, '').slice(0, 19);
