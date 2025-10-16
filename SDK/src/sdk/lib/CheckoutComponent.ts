@@ -17,6 +17,8 @@ import { FrameMessenger } from '../core/iframe/FrameMessenger';
 import { buildFrameUrl, createSandboxedIframe } from '../core/iframe/createIframe';
 import { resolveForm } from '../core/form/resolveForm';
 
+import { Logger, makeLogger, type LogLevel } from '../core/utils/Logger';
+
 type PublicKey = string;
 type CSSVars = Record<string, string>;
 
@@ -36,6 +38,7 @@ export interface CheckoutInitOptions
   validityId?: string;
   channel?: string;
   debug?: boolean;
+  logLevel?: string;
   [key: string]: unknown;
 }
 
@@ -81,6 +84,8 @@ export class CheckoutComponent implements CheckoutPort
   private sessionId?: string;
 
   private sourceIp: Promise<string | undefined>;
+  
+  private readonly logger: Logger;
 
   constructor(publicKey: PublicKey, options: CheckoutInitOptions)
   {
@@ -102,7 +107,8 @@ export class CheckoutComponent implements CheckoutPort
 
     this.themeVars = toCssVars(normaliseStyling(this.options.styling as StylingOptions));
     this.sourceIp = getClientIpViaIpify();
-
+    
+    this.logger = makeLogger('CheckoutComponent', Boolean(this.options.debug), (this.options.logLevel ?? "debug") as LogLevel);
     this.debug('CheckoutComponent: constructed', { frameUrl: this.frameUrl, targetOrigin: this.targetOrigin });
   }
 
@@ -312,6 +318,15 @@ export class CheckoutComponent implements CheckoutPort
         {
           this.messenger?.post({ type: 'configure', themeVars: this.themeVars! });
         }
+
+        this.messenger?.post({
+          type: 'configureLogger',
+          enabled: Boolean(this.options.debug),
+          level: (this.options.level ?? 'debug') as LogLevel,
+          namespaceBase: 'Checkout-Iframe',
+          sessionId: this.sessionId,
+        });
+
         return;
       }
       case 'error':
@@ -326,13 +341,8 @@ export class CheckoutComponent implements CheckoutPort
     }
   }
 
-  private debug(msg: string, data?: unknown)
+  private debug(message: string, data?: unknown)
   {
-    if (!this.options.debug)
-    {
-      return;
-    }
-    // eslint-disable-next-line no-console
-    console.log(`[Checkout] ${msg}`, data ?? '');
+    this.logger.debug(message, data ?? '');
   }
 }

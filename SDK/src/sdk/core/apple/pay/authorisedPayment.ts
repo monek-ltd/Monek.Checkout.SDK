@@ -1,4 +1,4 @@
-import { API } from '../../config';
+import { API } from '../../../config';
 
 export async function authorisedPayment(apiKey: string, payload: any) {
     const url = `${API.base}/payment/apple-pay`;

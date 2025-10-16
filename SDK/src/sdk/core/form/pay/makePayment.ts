@@ -1,117 +1,78 @@
+// core/pay/pay.ts
 import { API } from '../../../config';
 import type { CheckoutPort } from '../../../types/checkout-port';
-import { normaliseAmount } from '../../utils/normaliseCurrency';
 import type { PaymentResponse } from './payment-payloads';
+import { buildPaymentRequest } from './buildPaymentRequest';
+import { mapPaymentResponse } from './mapPaymentResponse';
+
+export type PayDeps = {
+  fetchImpl?: typeof fetch;
+  debugEnabled?: boolean;
+};
 
 export async function pay(
-    cardTokenId: string,
-    sessionId: string,
-    expiry: string,
-    component: CheckoutPort): Promise<PaymentResponse> {
+  cardTokenId: string,
+  sessionId: string,
+  expiry: string,
+  component: CheckoutPort,
+  deps: PayDeps = {}
+): Promise<PaymentResponse>
+{
+  const fetchImpl = deps.fetchImpl ?? fetch;
+  const debugEnabled = Boolean(deps.debugEnabled);
 
-    const res = await fetch(`${API.base}/payment`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': component.getPublicKey(),
-        },
-        body: JSON.stringify(await buildPaymentRequest(cardTokenId, sessionId, expiry, component)),
+  const debug = (message: string, data?: unknown) =>
+  {
+    if (!debugEnabled)
+    {
+      return;
+    }
+    // eslint-disable-next-line no-console
+    console.log('[Pay]', message, data ?? '');
+  };
+
+  debug('start', { sessionId });
+
+  const requestBody = await buildPaymentRequest(cardTokenId, sessionId, expiry, component);
+  debug('request built', requestBody);
+
+  let response: Response;
+  try
+  {
+    response = await fetchImpl(`${API.base}/payment`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': component.getPublicKey(),
+      },
+      body: JSON.stringify(requestBody),
     });
-    if (!res.ok) {
-        throw new Error(`payment failed (${res.status})`);
-    }
+  }
+  catch (networkError)
+  {
+    debug('network error', { message: (networkError as Error)?.message });
+    throw new Error('Payment request failed to send');
+  }
 
-    const j = await res.json();
+  if (!response.ok)
+  {
+    debug('non-OK response', { status: response.status });
+    throw new Error(`payment failed (${response.status})`);
+  }
 
-    const payload: PaymentResponse = {
-        Result: j.Result ?? j.result,
-        ErrorCode: j.ErrorCode ?? j.errorCode,
-        AuthCode: j.AuthCode ?? j.authCode,
-        Message: j.Message ?? j.message,
-    };
-    return payload;
-}
+  let rawJson: any;
+  try
+  {
+    rawJson = await response.json();
+  }
+  catch
+  {
+    debug('invalid JSON response');
+    throw new Error('Invalid payment response (not JSON)');
+  }
 
-async function buildPaymentRequest(
-    cardTokenId: string,
-    sessionId: string,
-    expiry: string,
-    component: CheckoutPort
-    ) {
+  const payload = mapPaymentResponse(rawJson);
+  debug('success', payload);
 
-    const callbacks = component.getCallbacks();
-    
-    const amount = 
-        callbacks?.getAmount 
-            ? await callbacks.getAmount() 
-            : undefined;
-
-    if (!amount) { 
-        throw new Error('Missing amount: pass in or provide getAmount()');
-    }
-
-    const normalisedAmount = normaliseAmount(amount);
-
-    const cardholderInformation =
-        callbacks?.getCardholderDetails
-            ? await callbacks.getCardholderDetails()
-            : undefined;
-
-    if (!cardholderInformation) {
-        throw new Error('Missing cardholder information: pass in or provide getCardholderDetails()');
-    }
-
-    const description =
-        callbacks?.getDescription
-            ? await callbacks.getDescription()
-            : undefined;
-
-    if (!description) {
-        throw new Error('Missing description: pass in or provide getDescription()');
-    }
-
-    const expiryMonth = expiry.split('/')[0];
-    const expiryYear = expiry.split('/')[1];
-
-    const addr = cardholderInformation.billingAddress;
-
-    const ip = await component.getSourceIp();
-    const url = (typeof window !== 'undefined' && window?.location?.href) ? window.location.href : undefined;
-    const source = (typeof navigator !== 'undefined' && navigator?.userAgent)
-    ? `web:${navigator.userAgent}`
-    : 'EmbeddedCheckout';
-
-    return {
-        sessionId,
-        tokenId: cardTokenId,                            
-        settlementType: component.getSettlementType(),
-        cardEntry: component.getCardEntry(),
-        intent: component.getIntent(),
-        order: component.getOrder(),
-        currencyCode: normalisedAmount.currencyNumeric,
-        minorAmount: normalisedAmount.minor,
-        countryCode: component.getCountryCode().numeric,
-        card: {
-          expiryMonth: expiryMonth,                   
-          expiryYear: expiryYear,
-        },
-        
-        cardHolder: {
-          name: cardholderInformation.name,
-          emailAddress: cardholderInformation.email,
-          phoneNumber: cardholderInformation.phone,
-          ...(addr?.addressLine1 ? { billingStreet1: addr.addressLine1 } : {}),
-          ...(addr?.addressLine2 ? { billingStreet2: addr.addressLine2 } : {}),
-          ...(addr?.city ? { billingCity: addr.city } : {}),
-          ...(addr?.postcode ? { billingPostcode: addr.postcode } : {}),
-        },
-        storeCardDetails: component.getStoreCardDetails(),
-        idempotencyToken: crypto.randomUUID(),
-        source,
-        ...(ip ? { sourceIpAddress: ip } : {}),
-        ...(url ? { url } : {}),
-        basketDescription: description,
-        validityId: component.getValidityId?.() ?? undefined,
-        channel: component.getChannel?.() ?? 'Web',
-      };
+  return payload;
 }

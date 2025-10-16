@@ -88,9 +88,8 @@
     <script>
         (async function () {
             window.addEventListener('message', (evt) => {
-                console.log('[PARENT RX]', evt.origin, evt.data);
+                console.log('[DEMO PAGE]:message-snoop', evt.data, evt);
             });
-            console.log('[parent] origin =', window.location.origin);
 
             if (typeof window.Monek !== 'function') {
                 console.error('Monek SDK not loaded');
@@ -131,8 +130,8 @@
 
             const buildOptions = (stylingPreset, isExpress) => ({
                 //frameUrl: isExpress
-                // ? 'https://dev-checkout-js.monek.com/src/expressCheckout/express-checkout.html'
-                // : 'https://dev-checkout-js.monek.com/src/hostedFields/hosted-fields.html',
+                 //? 'https://dev-checkout-js.monek.com/src/expressCheckout/express-checkout.html'
+                 //: 'https://dev-checkout-js.monek.com/src/hostedFields/hosted-fields.html',
                 callbacks: {
                     getAmount: () => ({ minor: 10, currency: '826' }),
                     getDescription: () => 'goods',
@@ -163,6 +162,7 @@
                 settlementType: 'Auto',
                 storeCardDetails: false,
                 cardEntry: 'ECommerce',
+                debug: true
             });
 
             function setLoadingPlaceholders() {
