@@ -2,41 +2,97 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <title>SDK Dev Dashboard</title>
+    <title>Monek Checkout SDK – Dev Dashboard</title>
     <link rel="stylesheet" href="./index.css">
 </head>
 <body>
-    <h1>Monek Checkout SDK</h1>
+    <!-- Intro card -->
+    <div class="card intro">
+        <h2 class="intro__title">Monek Checkout SDK</h2>
+        <h3 class="intro__subtitle">checkout-js</h3>
+
+        <p class="sub">
+            Monek Checkout (aka checkout-js) is an embedded checkout you can drop into your site. It renders secure hosted fields for cards and an express surface (e.g. Apple Pay) inside sandboxed iframes, while you keep layout and styling control.
+        </p>
+
+        <strong>How this demo works</strong>
+        <ul class="intro__list">
+            <li>Two public keys (<span class="tip" tabindex="0" data-tip="Switch between TEST and LIVE keys to switch between a TEST/LIVE Merchant.">Test/Live</span>) let you try test cards or real payments.</li>
+            <li>Default charge is <code>£0.10</code> for quick testing (toggle to charge the real basket total).</li>
+            <li>Pay via Apple Pay (if available) or fill the card form and press <em>Pay</em>.</li>
+            <li>Client completion hooks drive redirects and error handling.</li>
+        </ul>
+    </div>
 
     <form id="test-form" action="/echo" method="POST">
+        <h2 class="section-title">Checkout</h2>
 
-        <div class="toolbar">
-            <button type="button" id="btn-key-a">TEST</button>
-            <button type="button" id="btn-key-b">LIVE</button>
-            <span id="active-key-label" style="margin-left:12px;opacity:.7"></span>
+        <!-- Basket -->
+        <div class="card basket" id="basket-card">
+            <div class="basket__header">
+                <div>
+                    <h3 class="basket__title">Your basket</h3>
+                    <div class="sub" id="basket-summary">3 items · Ready to ship</div>
+                </div>
+                <div class="switch tip" tabindex="0"
+                     data-tip="Keep this on to charge 10p while testing. Turn it off to charge the real basket total.">
+                    <label for="charge-demo">
+                        <input type="checkbox" id="charge-demo" checked>
+                        Charge demo amount (£0.10)
+                    </label>
+                </div>
+            </div>
+
+            <div class="basket__items" id="basket-items"></div>
+
+            <div class="basket__totals">
+                <div class="basket__line"><span>Subtotal</span><span id="basket-subtotal">—</span></div>
+                <div class="basket__line">
+                    <span class="tip" tabindex="0" data-tip="Estimated VAT at 20% (for demo).">VAT (est.)</span>
+                    <span id="basket-vat">—</span>
+                </div>
+                <div class="basket__line"><span>Shipping</span><span id="basket-shipping">—</span></div>
+                <div class="basket__line basket__line--em"><span>Total</span><span id="basket-total">—</span></div>
+            </div>
+
+            <div class="basket__controls">
+                <div class="tip" tabindex="0"
+                     data-tip="This total feeds into the SDK getAmount() callback. If 'Charge demo' is on, the SDK will charge £0.10.">
+                    Charged total →
+                </div>
+                <div id="basket-total-charged" class="basket__charged">£0.10</div>
+            </div>
         </div>
 
-        <div id="sdk-express-container"></div>
+        <hr />
 
-        <!-- Cardholder Name -->
-        <label>
-            Name on Card
-            <input type="text" name="billingName" autocomplete="cc-name" required />
-        </label>
+        <!-- Env + express -->
+        <div class="toolbar">
+            <button type="button" id="btn-key-a" class="tip" data-tip="Use TEST key for safe test cards.">TEST</button>
+            <button type="button" id="btn-key-b" class="tip" data-tip="Use LIVE key for real payments (still a demo).">LIVE</button>
+            <span id="active-key-label" class="active-key-label"></span>
+        </div>
 
-        <!-- Email -->
-        <label>
-            Email
-            <input type="email" name="billingEmail" autocomplete="email" required />
-        </label>
+        <div id="sdk-express-container" class="sdk-surface tip" tabindex="0"
+             data-tip="Express surface (Apple Pay) mounts here. If hidden, check Apple Pay availability and that the key has Apple Pay enabled.">
+        </div>
 
-        <!-- Phone -->
-        <label>
-            Phone
-            <input type="tel" name="billingPhone" autocomplete="tel" />
-        </label>
+        <!-- Billing form -->
+        <div class="two-col">
+            <label>
+                Name on Card
+                <input type="text" name="billingName" autocomplete="cc-name" required />
+            </label>
+            <label>
+                Email
+                <input type="email" name="billingEmail" autocomplete="email" required />
+            </label>
+            <label>
+                Phone
+                <input type="tel" name="billingPhone" autocomplete="tel" />
+            </label>
+        </div>
 
-        <!-- Address lines -->
         <label>
             Address Line 1
             <input type="text" name="billingAddress1" autocomplete="address-line1" required />
@@ -47,46 +103,54 @@
             <input type="text" name="billingAddress2" autocomplete="address-line2" />
         </label>
 
-        <!-- City -->
-        <label>
-            City
-            <input type="text" name="billingCity" autocomplete="address-level2" required />
-        </label>
-
-        <!-- Postcode -->
-        <label>
-            Postcode
-            <input type="text" name="billingPostcode" autocomplete="postal-code" required />
-        </label>
-
-        <!-- Country (numeric code or ISO alpha-2, depending on your API) -->
-        <label>
-            Country
-            <input type="text" name="billingCountry" placeholder="826" required />
-        </label>
-
-        <br />
-        <hr />
-        <br />
-
-        <div class="toolbar">
-            <button type="button" id="btn-light">Light</button>
-            <button type="button" id="btn-dark">Dark</button>
-            <button type="button" id="btn-brand">Custom</button>
+        <div class="two-col">
+            <label>
+                City
+                <input type="text" name="billingCity" autocomplete="address-level2" required />
+            </label>
+            <label>
+                Postcode
+                <input type="text" name="billingPostcode" autocomplete="postal-code" required />
+            </label>
         </div>
 
-        <div id="sdk-container"></div>
+        <hr />
 
-        <br />
-        <button type="submit">Pay</button>
+        <!-- Hosted fields -->
+        <div class="card">
+            <div class="toolbar">
+                <button type="button" id="btn-light" class="tip" data-tip="Applies the light preset for hosted fields.">Light</button>
+                <button type="button" id="btn-dark" class="tip" data-tip="Applies the dark preset for hosted fields.">Dark</button>
+                <button type="button" id="btn-brand" class="tip" data-tip="A loud, customizable preset that shows how far you can style.">Custom</button>
+            </div>
+
+            <div id="sdk-container" class="sdk-surface tip" tabindex="0"
+                 data-tip="Hosted card fields mount here inside a secure iframe. Your page keeps full layout control.">
+            </div>
+
+            <div class="paybar">
+                <button type="submit" class="tip"
+                        data-tip="Triggers tokenisation, 3DS, and—if client completion is enabled—payment + redirect.">
+                    Pay
+                </button>
+            </div>
+        </div>
     </form>
 
-    <hr />
+    <div class="card outro">
+        <strong>What to try</strong>
+        <ul>
+            <li><span class="tip" tabindex="0" data-tip="Try both ‘Light’ and ‘Dark’, then ‘Custom’.">Switch themes</span> and observe live styling inside the iframe.</li>
+            <li>Flip between <span class="tip" tabindex="0" data-tip="Demo toggles environment keys; your integration will set one per environment.">TEST/LIVE keys</span> and see the label update.</li>
+            <li>If you have Apple Pay set up, tap the Apple Pay button in the Express area.</li>
+        </ul>
+        <p class="sub">Implementation docs: <a href="https://github.com/monek-ltd/Monek.Checkout.SDK" target="_blank" rel="noopener">github.com/monek-ltd/Monek.Checkout.SDK</a></p>
+    </div>
 
     <!-- The built SDK (IIFE). -->
     <script src="/monek-checkout.iife.js"></script>
     <script>
-        (async function () {
+        (async function bootstrap() {
             window.addEventListener('message', (evt) => {
                 console.log('[DEMO PAGE]:message-snoop', evt.data, evt);
             });
@@ -96,19 +160,15 @@
                 return;
             }
 
-            // ====== keys ======
             const KEYS = {
                 A: 'test_73cd746315f242ce9785d2775fbd5164', // 0000015
                 B: 'live_2f3dfc096c4c46abad965079f2937704', // 0179127
             };
-
             const params = new URLSearchParams(location.search);
             let currentKey = (params.get('key') === 'B') ? 'B' : 'A';
 
-            const keyLabel = document.getElementById('active-key-label');
-
-            // ====== theming presets ======
             const formEl = document.getElementById('test-form');
+            const keyLabel = document.getElementById('active-key-label');
 
             const STYLING_LIGHT = { theme: 'light' };
             const STYLING_DARK = { theme: 'dark' };
@@ -126,109 +186,192 @@
             let sdk = null;
             let checkout = null;
             let express = null;
-            let lastPreset = STYLING_LIGHT;
 
-            const buildOptions = (stylingPreset, isExpress) => ({
-                //frameUrl: isExpress
-                 //? 'https://dev-checkout-js.monek.com/src/expressCheckout/express-checkout.html'
-                 //: 'https://dev-checkout-js.monek.com/src/hostedFields/hosted-fields.html',
-                callbacks: {
-                    getAmount: () => ({ minor: 10, currency: '826' }),
-                    getDescription: () => 'goods',
-                    getCardholderDetails: () => ({
-                        name: val('billingName'),
-                        email: val('billingEmail'),
-                        HomePhone: val('billingPhone'),
-                        billingAddress: {
-                            addressLine1: val('billingAddress1'),
-                            addressLine2: val('billingAddress2'),
-                            city: val('billingCity'),
-                            postcode: val('billingPostcode'),
-                            country: val('billingCountry'),
-                        },
-                    }),
-                },
-                countryCode: '826',
-                styling: stylingPreset,
-                challenge: { display: 'popup', size: 'medium' },
-                completion: {
-                    mode: 'client',
-                    onSuccess: (ctx, { redirect }) => redirect(`/demo-complete`),
-                    onError: (ctx, { reenable }) => { reenable(); alert(ctx?.payment?.Message || 'Payment failed'); },
-                    onCancel: (ctx, { reenable }) => reenable(),
-                },
-                intent: 'Purchase',
-                order: 'Checkout',
-                settlementType: 'Auto',
-                storeCardDetails: false,
-                cardEntry: 'ECommerce',
-                debug: true,
-                appleMerchantLabel: 'Demo Merchant'
-            });
+            // ------- Basket model -------
+            const basketItemsEl = document.getElementById('basket-items');
+            const basketSubtotalEl = document.getElementById('basket-subtotal');
+            const basketVatEl = document.getElementById('basket-vat');
+            const basketShippingEl = document.getElementById('basket-shipping');
+            const basketTotalEl = document.getElementById('basket-total');
+            const basketTotalChargedEl = document.getElementById('basket-total-charged');
+            const basketSummaryEl = document.getElementById('basket-summary');
+            const chargeDemoEl = document.getElementById('charge-demo');
+
+            let basket = [
+                { id: 'coffee', name: 'Single-Origin Coffee Beans', variant: '250g · Ethiopia', unitMinor: 850, qty: 1 },
+                { id: 'mug', name: 'Ceramic Mug', variant: 'Matte Sand', unitMinor: 600, qty: 1 },
+                { id: 'bisc', name: 'Biscotti Pack', variant: 'Almond', unitMinor: 250, qty: 1 },
+            ];
+            const SHIPPING_MINOR = 200; // £2.00
+            const VAT_RATE = 0.20;
+
+            const formatMinor = (minor) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(minor / 100);
+
+            function basketTotals() {
+                const subtotalMinor = basket.reduce((acc, item) => acc + item.unitMinor * item.qty, 0);
+                const vatMinor = Math.round(subtotalMinor * VAT_RATE);
+                const shippingMinor = subtotalMinor > 0 ? SHIPPING_MINOR : 0;
+                const totalMinor = subtotalMinor + vatMinor + shippingMinor;
+                const totalQty = basket.reduce((acc, item) => acc + item.qty, 0);
+                return { subtotalMinor, vatMinor, shippingMinor, totalMinor, totalQty };
+            }
+
+            function renderBasket() {
+                basketItemsEl.innerHTML = '';
+                for (const item of basket) {
+                    const row = document.createElement('div');
+                    row.className = 'basket__row';
+                    row.innerHTML = `
+                <div class="basket__thumb" aria-hidden="true">img</div>
+                <div>
+                  <div class="basket__title">${item.name}</div>
+                  <div class="basket__meta">${item.variant}</div>
+                </div>
+                <div>
+                  <div class="basket__qty" aria-label="Quantity">
+                    <button type="button" data-act="dec" data-id="${item.id}" aria-label="Decrease quantity">-</button>
+                    <span aria-live="polite">${item.qty}</span>
+                    <button type="button" data-act="inc" data-id="${item.id}" aria-label="Increase quantity">+</button>
+                  </div>
+                </div>
+                <div class="basket__price">${formatMinor(item.unitMinor * item.qty)}</div>
+              `;
+                    const remove = document.createElement('button');
+                    remove.className = 'basket__remove';
+                    remove.textContent = 'Remove';
+                    remove.setAttribute('data-act', 'rm');
+                    remove.setAttribute('data-id', item.id);
+                    row.appendChild(remove);
+                    basketItemsEl.appendChild(row);
+                }
+
+                const totals = basketTotals();
+                basketSubtotalEl.textContent = formatMinor(totals.subtotalMinor);
+                basketVatEl.textContent = formatMinor(totals.vatMinor);
+                basketShippingEl.textContent = formatMinor(totals.shippingMinor);
+                basketTotalEl.textContent = formatMinor(totals.totalMinor);
+
+                const chargedMinor = chargeDemoEl.checked ? 10 : totals.totalMinor;
+                basketTotalChargedEl.textContent = formatMinor(chargedMinor);
+                basketSummaryEl.textContent = `${totals.totalQty} item${totals.totalQty === 1 ? '' : 's'} · Ready to ship`;
+            }
+
+            function adjustQty(id, delta) {
+                const item = basket.find(i => i.id === id);
+                if (!item) { return; }
+                item.qty = Math.max(0, Math.min(9, item.qty + delta));
+                if (item.qty === 0) { basket = basket.filter(i => i.id !== id); }
+                renderBasket();
+            }
 
             function setLoadingPlaceholders() {
-                const container = document.querySelector('#sdk-container');
-                container.innerHTML = '<div style="padding:8px;color:#666">Loading…</div>';
-                const expressContainer = document.querySelector('#sdk-express-container');
-                expressContainer.innerHTML = '<div style="padding:8px;color:#666">Loading…</div>';
+                document.querySelector('#sdk-container').innerHTML = '<div style="padding:8px;color:#666">Loading…</div>';
+                document.querySelector('#sdk-express-container').innerHTML = '<div style="padding:8px;color:#666">Loading…</div>';
+            }
+
+            function buildOptions(stylingPreset, isExpress) {
+                return {
+                    //frameUrl: isExpress
+                        //? 'https://dev-checkout-js.monek.com/src/expressCheckout/express-checkout.html'
+                        //: 'https://dev-checkout-js.monek.com/src/hostedFields/hosted-fields.html',
+                    callbacks: {
+                        getAmount: () => {
+                            const { totalMinor } = basketTotals();
+                            const minor = chargeDemoEl.checked ? 10 : totalMinor;
+                            return { minor, currency: '826' };
+                        },
+                        getDescription: () => 'Demo order',
+                        getCardholderDetails: () => ({
+                            name: val('billingName'),
+                            email: val('billingEmail'),
+                            HomePhone: val('billingPhone'),
+                            billingAddress: {
+                                addressLine1: val('billingAddress1'),
+                                addressLine2: val('billingAddress2'),
+                                city: val('billingCity'),
+                                postcode: val('billingPostcode'),
+                                country: '826',
+                            },
+                        }),
+                    },
+                    countryCode: '826',
+                    styling: stylingPreset,
+                    challenge: { display: 'popup', size: 'medium' },
+                    completion: {
+                        mode: 'client',
+                        onSuccess: (ctx, { redirect }) => redirect(`/demo-complete`),
+                        onError: (ctx, { reenable }) => { reenable(); alert(ctx?.payment?.Message || 'Payment failed'); },
+                        onCancel: (ctx, { reenable }) => reenable(),
+                    },
+                    intent: 'Purchase',
+                    order: 'Checkout',
+                    settlementType: 'Auto',
+                    storeCardDetails: false,
+                    cardEntry: 'ECommerce',
+                    debug: true,
+                    appleMerchantLabel: 'Demo Merchant'
+                };
             }
 
             async function destroyComponents() {
                 if (checkout?.destroy) { try { await checkout.destroy(); } catch { } }
                 if (express?.destroy) { try { await express.destroy(); } catch { } }
-                checkout = null;
-                express = null;
+                checkout = null; express = null;
             }
 
             async function mountWithPreset(preset) {
-                lastPreset = preset;
                 setLoadingPlaceholders();
-
                 await destroyComponents();
-
                 checkout = sdk.createComponent('checkout', buildOptions(preset, false));
                 await checkout.mount('#sdk-container');
-
                 express = sdk.createComponent('express', buildOptions(preset, true));
                 await express.mount('#sdk-express-container');
             }
 
             async function initSdkForKey(keyCode) {
-                // init a fresh SDK instance for a specific public key
                 sdk = await window.Monek(KEYS[keyCode]);
                 keyLabel.textContent = `Active key: ${keyCode} (${KEYS[keyCode].slice(0, 8)}… )`;
             }
 
-            // ====== initial boot ======
-            await initSdkForKey(currentKey);
-            await mountWithPreset(STYLING_LIGHT);
-
-            // ====== theme buttons ======
-            document.getElementById('btn-light').addEventListener('click', () => {
-                document.documentElement.setAttribute('data-theme', 'light');
-                mountWithPreset(STYLING_LIGHT);
-            });
-
-            document.getElementById('btn-dark').addEventListener('click', () => {
-                document.documentElement.setAttribute('data-theme', 'dark');
-                mountWithPreset(STYLING_DARK);
-            });
-
-            document.getElementById('btn-brand').addEventListener('click', () => {
-                document.documentElement.setAttribute('data-theme', 'light');
-                mountWithPreset(STYLING_BRAND);
-            });
-
-            // ====== key switcher buttons ======
             const reloadWithKey = (keyCode) => {
                 const url = new URL(window.location.href);
                 url.searchParams.set('key', keyCode);
                 window.location.assign(url.toString());
             };
 
+            // Event wiring
+            document.getElementById('btn-light').addEventListener('click', () => {
+                document.documentElement.setAttribute('data-theme', 'light');
+                mountWithPreset(STYLING_LIGHT);
+            });
+            document.getElementById('btn-dark').addEventListener('click', () => {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                mountWithPreset(STYLING_DARK);
+            });
+            document.getElementById('btn-brand').addEventListener('click', () => {
+                document.documentElement.setAttribute('data-theme', 'light');
+                mountWithPreset(STYLING_BRAND);
+            });
+
             document.getElementById('btn-key-a').addEventListener('click', () => reloadWithKey('A'));
             document.getElementById('btn-key-b').addEventListener('click', () => reloadWithKey('B'));
 
+            basketItemsEl.addEventListener('click', (e) => {
+                const target = e.target;
+                if (!(target instanceof HTMLElement)) { return; }
+                const act = target.getAttribute('data-act');
+                const id = target.getAttribute('data-id');
+                if (!act || !id) { return; }
+                if (act === 'inc') { adjustQty(id, +1); }
+                if (act === 'dec') { adjustQty(id, -1); }
+                if (act === 'rm') { adjustQty(id, -999); }
+            });
+            chargeDemoEl.addEventListener('change', renderBasket);
+
+            // Boot
+            renderBasket();
+            await initSdkForKey(currentKey);
+            await mountWithPreset(STYLING_LIGHT);
         })();
     </script>
 </body>

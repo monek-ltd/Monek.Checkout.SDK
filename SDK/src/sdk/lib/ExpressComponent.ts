@@ -10,6 +10,7 @@ type PublicKey = string;
 
 export interface ExpressInitOptions
 {
+  applePayEnabled?: boolean;
   frameUrl?: string;
   debug?: boolean;
   logLevel?: string;
@@ -48,114 +49,114 @@ export class ExpressComponent
     this.debug('constructed', { frameUrl: this.frameUrl, targetOrigin: this.targetOrigin });
   }
 
-  public async mount(selector: string): Promise<void>
-  {
-    this.debug('mount: start', { selector });
+    public async mount(selector: string): Promise<void> {
+        this.debug('mount: start', { selector });
 
-    if (this.iframe)
-    {
-      this.destroy();
-    }
-
-    const mountRoot = document.querySelector(selector);
-    if (!mountRoot)
-    {
-      throw new Error(`Mount target '${selector}' not found`);
-    }
-
-    const hostingForm = mountRoot.closest('form') as HTMLFormElement | null;
-    if (!hostingForm)
-    {
-      throw new Error('Mount target must be inside a <form>');
-    }
-
-    mountRoot.innerHTML = '';
-
-    const sessionId = await createSession(this.publicKey);
-    this.debug('created session', { sessionId });
-
-    const iframeSrc = buildFrameUrl(this.frameUrl, {
-      parentOrigin: this.parentOrigin,
-      sessionId,
-      publicKey: this.publicKey,
-    });
-
-    const iframe = createSandboxedIframe(iframeSrc, DEFAULT_IFRAME_HEIGHT);
-    iframe.setAttribute('payment', '*');
-
-    mountRoot.appendChild(iframe);
-    this.iframe = iframe;
-
-    this.messenger = new FrameMessenger(
-      () => this.iframe?.contentWindow ?? null,
-      this.targetOrigin,
-      DEFAULT_TIMEOUT_MS
-    );
-
-    iframe.addEventListener('load', () =>
-    {
-      this.debug('iframe load');
-
-      this.messenger!.post({ type: 'PING_FROM_PARENT' });
-
-      this.messenger!.post({
-        type: 'configureLogger',
-        enabled: Boolean(this.options.debug),
-        level: (this.options.logLevel ?? 'debug') as LogLevel,
-        namespaceBase: 'Express-Iframe',
-        sessionId,
-      });
-    });
-
-    const onWindowMessage = async (event: MessageEvent) =>
-    {
-      if (event.origin !== this.targetOrigin)
-      {
-        return;
-      }
-
-      const data = event.data || {};
-
-      if (data.type === 'ready')
-      {
-        this.debug('iframe ready (express)');
-        this.messenger?.post({
-          type: 'configureLogger',
-          enabled: Boolean(this.options.debug),
-          level: (this.options.logLevel ?? 'debug') as LogLevel,
-          namespaceBase: 'Express-Iframe',
-          sessionId,
-        });
-        return;
-      }
-
-      if (data.type === 'ap-click')
-      {
-        this.debug('Apple Pay click received');
-
-        const isApplePayReady = await ensureApplePayReady();
-        if (!isApplePayReady || !canMakeApplePayments())
-        {
-          this.logger.warn('Apple Pay is not available');
-          return;
+        if (this.iframe) {
+            this.destroy();
         }
 
-        await applePayEventHandler(
-          this.publicKey,
-          this.options as Record<string, unknown>,
-          sessionId,
-          this.logger.child('ApplePayEventHandler')
-        );
-        return;
-      }
-      
-      this.debug('unhandled message from express iframe', { data });
-    };
+        const mountRoot = document.querySelector(selector);
+        if (!mountRoot) {
+            throw new Error(`Mount target '${selector}' not found`);
+        }
 
-    this.boundWindowMessageHandler = onWindowMessage;
-    window.addEventListener('message', this.boundWindowMessageHandler);
+        const hostingForm = mountRoot.closest('form') as HTMLFormElement | null;
+        if (!hostingForm) {
+            throw new Error('Mount target must be inside a <form>');
+        }
 
-    this.debug('mount: complete', { sessionId });
+        mountRoot.innerHTML = '';
+
+        const sessionId = await createSession(this.publicKey);
+        this.debug('created session', { sessionId });
+
+        const iframeSrc = buildFrameUrl(this.frameUrl, {
+            parentOrigin: this.parentOrigin,
+            sessionId,
+            publicKey: this.publicKey,
+        });
+
+        if (this.options.applePayEnabled == true) // || Gpay ect...
+        {
+            const iframe = createSandboxedIframe(iframeSrc, DEFAULT_IFRAME_HEIGHT);
+            iframe.setAttribute('payment', '*');
+
+            mountRoot.appendChild(iframe);
+            this.iframe = iframe;
+
+            this.messenger = new FrameMessenger(
+                () => this.iframe?.contentWindow ?? null,
+                this.targetOrigin,
+                DEFAULT_TIMEOUT_MS
+            );
+
+            iframe.addEventListener('load', () => {
+                this.debug('iframe load');
+
+                this.messenger!.post({ type: 'PING_FROM_PARENT' });
+
+                this.messenger!.post({
+                    type: 'configureLogger',
+                    enabled: Boolean(this.options.debug),
+                    level: (this.options.logLevel ?? 'debug') as LogLevel,
+                    namespaceBase: 'Express-Iframe',
+                    sessionId,
+                });
+            });
+
+            const onWindowMessage = async (event: MessageEvent) => {
+                if (event.origin !== this.targetOrigin) {
+                    return;
+                }
+
+                const data = event.data || {};
+
+                if (data.type === 'ready') {
+                    this.debug('iframe ready');
+
+                    this.messenger?.post({ type: 'configure', applePayEnabled: this.options.applePayEnabled! });
+
+                    this.messenger?.post({
+                        type: 'configureLogger',
+                        enabled: Boolean(this.options.debug),
+                        level: (this.options.logLevel ?? 'debug') as LogLevel,
+                        namespaceBase: 'Express-Iframe',
+                        sessionId,
+                    });
+                    return;
+                }
+
+                if (data.type === 'ap-click') {
+                    this.debug('Apple Pay click received');
+
+                    const isApplePayReady = await ensureApplePayReady();
+                    if (!isApplePayReady || !canMakeApplePayments()) {
+                        this.logger.warn('Apple Pay is not available');
+                        return;
+                    }
+
+                    await applePayEventHandler(
+                        this.publicKey,
+                        this.options as Record<string, unknown>,
+                        sessionId,
+                        this.logger.child('ApplePayEventHandler')
+                    );
+                    return;
+                }
+
+                this.debug('unhandled message from express iframe', { data });
+
+            };
+
+            this.boundWindowMessageHandler = onWindowMessage;
+            window.addEventListener('message', this.boundWindowMessageHandler);
+
+            this.debug('mount: complete', { sessionId });
+        }
+        else {
+            this.logger.warn('No express checkout options are available - Iframe not mounted');
+        }
   }
 
   public destroy(): void
