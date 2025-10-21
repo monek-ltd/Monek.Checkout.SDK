@@ -13,8 +13,8 @@ export function openChallengeWindow(options: ChallengeOptions) {
   } = options;
 
   // ---- DOM: overlay + container ----
-  const overlay = document.createElement('div');
-  overlay.style.cssText = [
+  const overlayElement = document.createElement('div');
+  overlayElement.style.cssText = [
     'position:fixed',
     'inset:0',
     'background:rgba(0,0,0,.5)',
@@ -24,8 +24,8 @@ export function openChallengeWindow(options: ChallengeOptions) {
     'justify-content:center',
   ].join(';');
 
-  const container = document.createElement('div');
-  container.style.cssText = [
+  const containerElement = document.createElement('div');
+  containerElement.style.cssText = [
     'position:relative',
     'background:#fff',
     'border-radius:12px',
@@ -54,12 +54,12 @@ export function openChallengeWindow(options: ChallengeOptions) {
   iframeElement.name = 'monek-3ds-frame';
   iframeElement.style.cssText = 'width:100%; height:100%; border:0; display:block;';
 
-  container.appendChild(closeButton);
-  container.appendChild(iframeElement);
-  overlay.appendChild(container);
-  document.body.appendChild(overlay);
+  containerElement.appendChild(closeButton);
+  containerElement.appendChild(iframeElement);
+  overlayElement.appendChild(containerElement);
+  document.body.appendChild(overlayElement);
 
-  // ---- write a same-origin document, then POST to ACS with CReq ----
+  // ---- Write a same-origin document, then POST to ACS with CReq ----
   const innerDocument = iframeElement.contentWindow!.document;
   innerDocument.open();
   innerDocument.write(`
@@ -73,80 +73,96 @@ export function openChallengeWindow(options: ChallengeOptions) {
   `);
   innerDocument.close();
 
-  // ---- completion ----
-  let cleanedUp = false;
+  // ---- Completion orchestration ----
+  let isSettled = false;
+  let isCleanedUp = false;
 
-  function cleanup() {
-    if (cleanedUp) {
+  let resolveDone!: (result: ChallengeResult) => void;
+  const done = new Promise<ChallengeResult>((resolve) => { resolveDone = resolve; });
+
+  const complete = (result: ChallengeResult) => {
+    if (isSettled) {
       return;
     }
-    cleanedUp = true;
+    isSettled = true;
+    cleanup();
+    resolveDone(result);
+  };
+
+  const cleanup = () => {
+    if (isCleanedUp) {
+      return;
+    }
+    isCleanedUp = true;
 
     try {
-      overlay.remove();
-    } catch {
-      // ignore
-    }
-
+      window.removeEventListener('message', onWindowMessage);
+    } catch {}
     try {
       window.removeEventListener('keydown', onEscapeKey);
-    } catch {
-      // ignore
-    }
+    } catch {}
+    try {
+      overlayElement.remove();
+    } catch {}
 
     window.clearTimeout(hardTimeoutId);
-  }
+  };
 
-  function onEscapeKey(event: KeyboardEvent) {
+  // User closed (button or ESC)
+  const onEscapeKey = (event: KeyboardEvent) => {
     if (event.key === 'Escape') {
+      if (typeof onCancel === 'function') {
+        try { onCancel(); } catch {}
+      }
       complete({ kind: 'closed' });
     }
-  }
+  };
   window.addEventListener('keydown', onEscapeKey);
 
   const viaUserClosed = new Promise<ChallengeResult>((resolve) => {
     closeButton.addEventListener('click', () => {
-      try { onCancel?.(); } catch { /* ignore */ }
+      if (typeof onCancel === 'function') {
+        try { onCancel(); } catch {}
+      }
       resolve({ kind: 'closed' });
     }, { once: true });
   });
 
-  const viaResult = waitForResult
+  // Front-channel
+  const onWindowMessage = (event: MessageEvent) => {
+    if (event.source !== iframeElement.contentWindow) {
+      return;
+    }
+    const data = event.data || {};
+    if (data?.type === '3ds.challenge.close') {
+      complete({ kind: 'polled', data });
+    }
+  };
+  window.addEventListener('message', onWindowMessage);
+
+  // Back-channel
+  const viaBackChannel = waitForResult
     ? (async () => {
         try {
           const data = await waitForResult();
           return { kind: 'polled', data } as const;
         } catch {
-          await new Promise<never>(() => { /* keep pending */ });
-          return undefined as never;
+          return new Promise<never>(() => undefined) as never;
         }
       })()
-    : new Promise<never>(() => {  });
+    : new Promise<never>(() => undefined);
 
   const hardTimeoutId = window.setTimeout(() => {
     complete({ kind: 'timeout' });
   }, DEFAULT_HARD_TIMEOUT_MS);
 
-  function complete(result: ChallengeResult) {
-    cleanup();
-    resolveOnce(result);
-  }
-
-  let resolveOnce!: (r: ChallengeResult) => void;
-  const done = new Promise<ChallengeResult>((resolve) => {
-    resolveOnce = resolve;
-  });
-
-  Promise.race([viaResult, viaUserClosed]).then((result) => {
-    // result can be undefined if viaResult was intentionally kept pending on error
-    if (result) {
-      complete(result);
-    }
+  Promise.race([viaUserClosed, viaBackChannel]).then((result) => {
+    complete(result);
   });
 
   return {
     done,
-    close: () => complete({ kind: 'closed' })
+    close: () => complete({ kind: 'closed' }),
   };
 }
 
@@ -167,8 +183,8 @@ export function getWindowSize(size: ChallengeSize): string {
 
 function sizeToCss(size: ChallengeSize): string {
   if (typeof size === 'string') {
-    const pixels = getWindowSize(size);
-    return `width:${pixels}; height:${pixels};`;
+    const pixelSize = getWindowSize(size);
+    return `width:${pixelSize}; height:${pixelSize};`;
   }
   return `width:${size.width}px; height:${size.height}px;`;
 }
