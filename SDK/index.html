@@ -69,7 +69,7 @@
         <!-- Env + express -->
         <div class="toolbar">
             <button type="button" id="btn-key-a" class="tip" data-tip="Use TEST key for safe test cards.">TEST</button>
-            <button type="button" id="btn-key-b" class="tip" data-tip="Use LIVE key for real payments (still a demo).">LIVE</button>
+            <button type="button" id="btn-key-b" class="tip" data-tip="Use LIVE key for real payments (Warning!).">LIVE</button>
             <span id="active-key-label" class="active-key-label"></span>
         </div>
 
@@ -296,7 +296,7 @@
                     },
                     countryCode: '826',
                     styling: stylingPreset,
-                    challenge: { display: 'popup', size: 'medium' },
+                    challenge: { display: 'popup', size: 'medium', force: true },
                     completion: {
                         mode: 'client',
                         onSuccess: (ctx, { redirect }) => redirect(`/demo-complete`),

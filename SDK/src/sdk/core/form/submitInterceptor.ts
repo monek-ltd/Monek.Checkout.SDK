@@ -5,41 +5,41 @@ import { tokeniseAndGetExpiry } from "./submission/requestToken";
 import { runThreeDSFlow } from "./submission/threeDSFlow";
 import { completeSubmission } from "./submission/completeSubmission";
 import { runCompletionHook } from './helpers/runCompletionHook';
+import { Logger } from '../utils/Logger';
 
 export function interceptFormSubmit(
   form: HTMLFormElement,
   component: CheckoutPort,
-  debugEnabled: boolean = false
+  logger: Logger
 )
 {
+  const submitLogger = logger.child('Submit');
   let isSubmitting = false;
 
   const debug = (message: string, data?: unknown) =>
   {
-    if (!debugEnabled)
-    {
-      return;
-    }
-    // eslint-disable-next-line no-console
-    console.log(`[Submit] ${message}`, data ?? '');
+    submitLogger.debug(message, data ?? undefined);
   };
 
   const onSubmit = async (event: SubmitEvent) =>
   {
     if (isSubmitting)
     {
-      debug('blocked: already submitting');
       event.preventDefault();
+      debug('blocked: already submitting');
       return;
     }
 
     isSubmitting = true;
     event.preventDefault();
-    debug('start');
+
+    submitLogger.info('start');
+    const timerOverall = submitLogger.time('overall');
 
     const completionOptions = component.getCompletionOptions();
     const helpers = buildCompletionHelpers(form);
     helpers.disable();
+    debug('helpers disabled');
 
     let webSocketClient: any | null = null;
 
@@ -52,34 +52,54 @@ export function interceptFormSubmit(
       }
       debug('session acquired', { sessionId });
 
-      webSocketClient = await openSessionWebSocket(sessionId);
-      debug('websocket initialised', { connected: Boolean(webSocketClient) });
+      // WebSocket
+      const timerWs = submitLogger.time('websocket');
+      try
+      {
+        webSocketClient = await openSessionWebSocket(sessionId, submitLogger.child("WebSocket"));
+        timerWs.end({ connected: Boolean(webSocketClient) });
+        debug('websocket initialised', { connected: Boolean(webSocketClient) });
+      }
+      catch (wsError)
+      {
+        timerWs.end({ error: (wsError as Error)?.message });
+        submitLogger.warn('websocket failed to open; continuing without it', { message: (wsError as Error)?.message });
+      }
 
+      // Tokenise + expiry
+      const timerTokenise = submitLogger.time('tokenise');
       const { cardTokenId, expiry } = await tokeniseAndGetExpiry(component);
+      timerTokenise.end();
       debug('tokenised', { cardTokenId, expiry });
 
+      // 3DS flow
+      const timer3ds = submitLogger.time('3ds');
       const authContext = await runThreeDSFlow(
         component,
         sessionId,
         cardTokenId,
         expiry,
         completionOptions,
-        webSocketClient
+        webSocketClient,
+        submitLogger.child('ThreeDS')
       );
+      timer3ds.end({ result: authContext.authenticationResult?.result });
       debug('3DS flow complete', { result: authContext.authenticationResult?.result });
 
       // Not-authenticated branch
       if (authContext.authenticationResult?.result === 'not-authenticated')
       {
-        debug('not-authenticated branch entered');
+        submitLogger.warn('not-authenticated; invoking onError if provided');
 
         if (completionOptions?.onError)
         {
+          const timerHook = submitLogger.time('completion:onError');
           await runCompletionHook(
             completionOptions.onError,
             { sessionId, cardTokenId, auth: authContext.authenticationResult, payment: null },
             helpers
           );
+          timerHook.end();
           debug('completion onError hook executed');
         }
         else
@@ -89,7 +109,9 @@ export function interceptFormSubmit(
         return;
       }
 
-      debug('proceeding to completion', { mode: completionOptions?.mode ?? 'server' });
+      // Completion (client/server)
+      submitLogger.info('proceeding to completion', { mode: completionOptions?.mode ?? 'server' });
+      const timerComplete = submitLogger.time('completeSubmission');
 
       await completeSubmission(
         form,
@@ -99,17 +121,26 @@ export function interceptFormSubmit(
         helpers
       );
 
+      timerComplete.end();
       debug('completion finished');
     }
     catch (error)
     {
-      // eslint-disable-next-line no-console
-      console.error('[Checkout] error:', error);
+      submitLogger.error('submission error', { message: (error as Error)?.message });
       debug('error caught', { message: (error as Error)?.message });
     }
     finally
     {
-      helpers.reenable();
+      try
+      {
+        helpers.reenable();
+        debug('helpers reenabled');
+      }
+      catch
+      {
+        submitLogger.warn('helpers.reenable threw (ignored)');
+      }
+
       isSubmitting = false;
 
       try
@@ -120,12 +151,20 @@ export function interceptFormSubmit(
       catch
       {
         debug('websocket close failed (ignored)');
+        submitLogger.warn('websocket close failed (ignored)');
       }
 
-      debug('end');
+      timerOverall.end();
+      submitLogger.info('end');
     }
   };
 
   form.addEventListener('submit', onSubmit, { capture: true });
-  return () => form.removeEventListener('submit', onSubmit, { capture: true } as any);
+  submitLogger.debug('listener attached');
+
+  return () =>
+  {
+    form.removeEventListener('submit', onSubmit, { capture: true } as any);
+    submitLogger.debug('listener removed');
+  };
 }
