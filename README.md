@@ -1,4 +1,4 @@
-# Monek.Checkout.SDK
+Ôªø# Monek.Checkout.SDK
 Monek Checkout (aka checkout-js) is an embedded checkout you can drop into your site. It renders secure hosted fields for cards and an express surface (e.g. Apple Pay) inside sandboxed iframes, while you keep layout and styling control.
 
 This project is the **embedded checkout SDK** for Monek.  
@@ -18,9 +18,9 @@ Multiple builds: IIFE, UMD, ES Module
 
 The SDK is built as a **library** with multiple output formats:
 
-- **UMD** ñ `<script>` embed ? `window.Monek`
-- **IIFE** ñ `<script>` embed ? `window.Monek`
-- **ES Module** ñ `import` / `<script type="module">`
+- **UMD** ‚Äì `<script>` embed ? `window.Monek`
+- **IIFE** ‚Äì `<script>` embed ? `window.Monek`
+- **ES Module** ‚Äì `import` / `<script type="module">`
 
 ---
 
@@ -81,7 +81,43 @@ The SDK is built as a **library** with multiple output formats:
   })();
 </script>
 ```
-Thatís enough to see both Apple Pay (on supported browsers/devices) and card fields.
+That‚Äôs enough to see both Apple Pay (on supported browsers/devices) and card fields.
+
+## Form submission modes
+
+The SDK supports two ways to kick off the payment + 3-D Secure flow:
+
+1. Auto-intercept (classic forms)
+If your checkout lives inside a real <form>, the SDK will intercept the submit event automatically after mount(). You keep your own button and markup; we prevent the default submit, run tokenisation + 3DS, then complete via your completion mode.
+
+2. Manual trigger (no native form / headless UIs)
+For UIs that don‚Äôt submit a native <form>, call triggerSubmission() yourself (e.g. on ‚ÄúPlace order‚Äù click). You can still enable/disable the auto intercept if a form is present.
+
+```ts
+// If there's a <form> ancestor, enable auto intercept (default in mount):
+checkout.enableAutoIntercept(formOrSelector?);
+
+// Stop listening for native submit:
+checkout.disableIntercept();
+
+// Manually run the full flow (tokenise > 3DS > completion):
+await checkout.triggerSubmission();
+
+// Soft-cancel the current run (reenables UI, closes WS, stops 3DS wait):
+checkout.cancelSubmission();
+```
+In classic form setups you can keep auto-intercept and expose a manual button that calls triggerSubmission()‚Äîboth paths use the same internal routine.
+
+## Completion Modes
+
+- completion.mode: 'client' - SDK finalises client-side, then calls onSuccess/onError.
+- completion.mode: 'server' - SDK attaches results and submits back to your server (or you can handle the redirect yourself in onSuccess).
+
+Both modes support:
+
+- onSuccess(context, helpers)
+- onError(context, helpers)
+- onCancel(context, helpers)
 
 ## How to Embed Different Formats
 
@@ -174,17 +210,11 @@ If any of these throw or return missing values, the SDK will surface an error an
 
 #### Completion hooks
 
-onSuccess(context, helpers) ñ typically call helpers.redirect('/success')
+onSuccess(context, helpers) ‚Äì typically call helpers.redirect('/success')
 
-onError(context, helpers) ñ show an error and helpers.reenable() the form
+onError(context, helpers) ‚Äì show an error and helpers.reenable() the form
 
-onCancel(context, helpers) ñ called when a 3DS challenge or Apple Pay sheet is cancelled
-
-completion.mode:
-
-client ñ SDK performs payment, then calls your hook
-
-(Reserved) server ñ attach results to form and submit to your server
+onCancel(context, helpers) ‚Äì called when a 3DS challenge or Apple Pay sheet is cancelled
 
 ---
 
@@ -209,7 +239,7 @@ Apple Pay only renders when all apply:
 3. Your merchant domain validated (via your Monek account)
 4. The public key you use has Apple Pay enabled
 
-If the button doesnít show:
+If the button doesn‚Äôt show:
 
 - Confirm window.ApplePaySession?.canMakePayments() is true
 - Check your key/merchant settings
