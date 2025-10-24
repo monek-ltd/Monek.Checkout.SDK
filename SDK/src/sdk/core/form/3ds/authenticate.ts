@@ -87,7 +87,7 @@ async function buildAuthenticationRequest(cardTokenId: string, sessionId: string
       cardExpiryYear: expiryYear,
       challengeWindowSize: getWindowSize(size),
       challengePreference: forceChallenge ? "mandated" : null,
-      notificationUrl: `${API.base}/notification?redirect=${encodeURIComponent('https://checkout-js.monek.com/notification')}`,
+      notificationUrl: `${API.base}/notification`,
 
     };
 }
