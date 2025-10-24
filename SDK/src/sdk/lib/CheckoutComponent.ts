@@ -1,4 +1,3 @@
-// CheckoutComponent.ts
 import type { InitCallbacks } from '../types/callbacks';
 import type { CompletionOptions } from '../types/completion';
 import type { Intent, CardEntry, Order, SettlementType } from '../types/transaction-details';
@@ -6,7 +5,7 @@ import type { ChallengeOptions } from '../types/challenge-window';
 import type { FrameToParentMessage } from '../core/iframe/messages';
 import type { CheckoutPort } from '../types/checkout-port';
 
-import { interceptFormSubmit } from '../core/form/submitInterceptor';
+import { setupSubmissionController } from '../core/form/submissionController';
 import { validateCallbacks } from '../core/init/validateOptions';
 import { normaliseStyling, toCssVars, type StylingOptions } from '../types/styling';
 import { createSession } from '../core/init/createSession';
@@ -78,7 +77,7 @@ export class CheckoutComponent implements CheckoutPort
   private containerEl?: Element;
   private themeVars?: CSSVars;
 
-  private unbindSubmit?: () => void;
+  private submitController?: ReturnType<typeof setupSubmissionController>;
   private boundHandleMessage?: (event: MessageEvent) => void;
   private sessionId?: string;
 
@@ -197,7 +196,7 @@ export class CheckoutComponent implements CheckoutPort
     });
 
     this.messenger.post({ type: 'PING_FROM_PARENT' });
-    this.intercept(hostingForm);
+    this.enableAutoIntercept(hostingForm);
 
     this.boundHandleMessage = this.handleMessage.bind(this);
     window.addEventListener('message', this.boundHandleMessage);
@@ -205,28 +204,35 @@ export class CheckoutComponent implements CheckoutPort
     this.debug('mount: complete', { sessionId: this.sessionId });
   }
 
-  public intercept(formOrSelector?: string | HTMLFormElement)
-  {
-    this.unbindPrevious();
-
-    const hostingForm = resolveForm(this.containerEl, formOrSelector);
-    if (!hostingForm)
-    {
-      throw new Error('[Checkout] intercept: form not found');
+    public enableAutoIntercept(formOrSelector?: string | HTMLFormElement) {
+        this.disableIntercept();
+        const hostingForm = resolveForm(this.containerEl, formOrSelector);
+        if (!hostingForm) throw new Error('[Checkout] intercept: form not found');
+        this.submitController = setupSubmissionController(hostingForm, this, this.logger.child('SubmitInterceptor'));
+        this.submitController.attach();
+        this.debug('auto-intercept enabled');
     }
 
-    this.unbindSubmit = interceptFormSubmit(hostingForm, this, this.logger.child("SubmitInterceptor"));
-    return this.unbindSubmit;
-  }
-
-  private unbindPrevious()
-  {
-    if (this.unbindSubmit)
-    {
-      this.unbindSubmit();
-      this.unbindSubmit = undefined;
+    public disableIntercept() {
+        try { this.submitController?.unbind(); } catch { }
+        this.submitController = undefined;
+        this.debug('auto-intercept disabled');
     }
-  }
+
+    public async triggerSubmission() {
+        if (!this.submitController) {
+            const hostingForm = resolveForm(this.containerEl, undefined);
+            if (!hostingForm) throw new Error('[Checkout] triggerSubmission: hosting form not found');
+            this.submitController = setupSubmissionController(hostingForm, this, this.logger.child('SubmitInterceptor'));
+        }
+        this.debug('manual triggerSubmission');
+        return this.submitController.trigger();
+    }
+
+    public cancelSubmission() {
+        this.submitController?.cancel?.();
+}
+
 
   public destroy()
   {
@@ -235,7 +241,7 @@ export class CheckoutComponent implements CheckoutPort
       window.removeEventListener('message', this.boundHandleMessage);
       this.boundHandleMessage = undefined;
     }
-    this.unbindPrevious();
+    this.disableIntercept();
     this.iframe?.remove();
     this.iframe = undefined;
     this.messenger = undefined;
