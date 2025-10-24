@@ -20,6 +20,7 @@ export type LogEntryMessage = {
 
 export type ParentToFrameMessage =
   | { type: 'configure'; themeVars: Record<string, string> }
+  | { type: 'configure'; applePayEnabled: boolean }
   | { type: 'PING_FROM_PARENT' }
   | { type: 'tokenise' }
   | { type: 'getExpiry' }

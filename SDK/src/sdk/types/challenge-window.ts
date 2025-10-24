@@ -10,6 +10,7 @@ export type ChallengeOptions = {
   size?: ChallengeSize;
   onCancel?: () => void;             // optional
   waitForResult?: () => Promise<any>;
+  force?: boolean
 };
 
 export type ChallengeResult =

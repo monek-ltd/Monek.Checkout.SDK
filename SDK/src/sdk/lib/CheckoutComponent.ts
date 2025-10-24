@@ -48,7 +48,6 @@ const DEFAULT_TIMEOUT_MS = 20_000;
 const DEFAULT_COUNTRY = 826;
 const DEFAULT_CHANNEL = 'Web';
 
-// Normalize once so getters are trivial
 function normalizeOptions(optionsInput: CheckoutInitOptions = {}): CheckoutInitOptions
 {
   return {
@@ -150,7 +149,6 @@ export class CheckoutComponent implements CheckoutPort
   {
     this.debug('mount: start', { selector });
 
-    // idempotent
     if (this.iframe)
     {
       this.destroy();
@@ -217,7 +215,7 @@ export class CheckoutComponent implements CheckoutPort
       throw new Error('[Checkout] intercept: form not found');
     }
 
-    this.unbindSubmit = interceptFormSubmit(hostingForm, this, Boolean(this.options.debug));
+    this.unbindSubmit = interceptFormSubmit(hostingForm, this, this.logger.child("SubmitInterceptor"));
     return this.unbindSubmit;
   }
 

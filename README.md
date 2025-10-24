@@ -1,12 +1,20 @@
 # Monek.Checkout.SDK
-Monek Checkout (Checkout-Js) SDK, A new embedded checkout solution to display the checkout via Iframe on a merchants own domain
+Monek Checkout (aka checkout-js) is an embedded checkout you can drop into your site. It renders secure hosted fields for cards and an express surface (e.g. Apple Pay) inside sandboxed iframes, while you keep layout and styling control.
 
 This project is the **embedded checkout SDK** for Monek.  
-It provides hosted fields and an express checkout flow (for example, Apple Pay).
-
 ---
 
-## ?? Usage
+## Features
+- Hosted card fields (PAN/expiry/CVC inside an iframe)
+- Express checkout (Apple Pay)
+- 3-D Secure flow orchestration
+- Client completion hooks (onSuccess, onError, onCancel)
+- Theming via simple styling options and CSS variables
+
+Multiple builds: IIFE, UMD, ES Module
+---
+
+## Usage
 
 The SDK is built as a **library** with multiple output formats:
 
@@ -16,9 +24,68 @@ The SDK is built as a **library** with multiple output formats:
 
 ---
 
-## ?? How to Embed
+## Quick Start
 
-### ? IIFE
+1) Add containers to your page
+```html
+<form id="payment-form" action="/charge" method="post">
+  <!-- Express (Apple Pay) mounts here -->
+  <div id="express-container"></div>
+
+  <!-- Hosted card fields mount here -->
+  <div id="checkout-container"></div>
+
+  <button type="submit">Pay Now</button>
+</form>
+
+```
+2) Include the SDK (IIFE)
+```html
+<script src="https://checkout-js.monek.com/monek-checkout.iife.js"></script>
+<script>
+  (async () => {
+    // Initialize with your PUBLIC key
+    const sdk = await Monek('your-public-key');
+
+    // Minimal options + required callbacks
+    const options = {
+      callbacks: {
+        // Amount in minor/major units; currency is ISO-4217 numeric or alpha
+        getAmount: () => ({ major: document.querySelector('[name="amount"]').value, currency: '826' }), 
+        getDescription: () => 'Order #12345',
+        getCardholderDetails: () => ({
+          name: document.querySelector('[name="billingName"]').value,
+          email: document.querySelector('[name="billingEmail"]').value,
+          billingAddress: {
+            addressLine1: document.querySelector('[name="billingAddress1"]').value,
+            addressLine2: document.querySelector('[name="billingAddress2"]').value,
+            city: document.querySelector('[name="billingCity"]').value,
+            postcode: document.querySelector('[name="billingPostcode"]').value,
+            country: '826', //UK
+          },
+        }),
+      },
+      completion: {
+        mode: 'client', // SDK performs payment client-side
+        onSuccess: (ctx, { redirect }) => redirect('/thank-you'),
+        onError:   (ctx, { reenable }) => { reenable(); alert(ctx?.payment?.Message || 'Payment failed'); },
+        onCancel:  (ctx, { reenable }) => reenable(),
+      }
+    };
+
+    const checkout = sdk.createComponent('checkout', options);
+    await checkout.mount('#checkout-container');
+
+    const express = sdk.createComponent('express', options);
+    await express.mount('#express-container');
+  })();
+</script>
+```
+That’s enough to see both Apple Pay (on supported browsers/devices) and card fields.
+
+## How to Embed Different Formats
+
+### ? IIFE (recommended for plain sites)
 
 ```html
 <script src="https://checkout-js.monek.com/monek-checkout.iife.js"></script>
@@ -74,6 +141,53 @@ checkout.mount('#checkout-container');
 
 ---
 
+## Options Reference (most common)
+```ts
+type InitOptions = {
+  frameUrl?: string;          // override iframe URL (usually not needed)
+  styling?: StylingOptions;   // theming (colors, fonts, cssVars)
+  completion?: CompletionOptions;  // hooks & client/server mode
+  callbacks?: InitCallbacks;  // data providers (amount, cardholder, description)
+  settlementType?: 'Auto' | 'Manual';
+  storeCardDetails?: boolean;
+  intent?: 'Purchase';
+  cardEntry?: 'ECommerce'';
+  challenge?: { display: 'popup' | 'fullscreen'; size: 'small'|'medium'|'large' };
+  order?: string;
+  countryCode?: number | string;   // e.g. 826, 'GB', 'GBR'
+  validityId?: string;             // use if provided
+  channel?: string;                // e.g. 'Web'
+  debug?: boolean;                 // enables console logs
+  logLevel?: 'debug'|'info'|'warn'|'error'|'silent';
+};
+```
+
+#### Required callbacks
+
+- getAmount(): { minor: number; currency: string|number }
+
+- getDescription(): string
+
+- getCardholderDetails(): { name, email, billingAddress }
+
+If any of these throw or return missing values, the SDK will surface an error and halt submission.
+
+#### Completion hooks
+
+onSuccess(context, helpers) – typically call helpers.redirect('/success')
+
+onError(context, helpers) – show an error and helpers.reenable() the form
+
+onCancel(context, helpers) – called when a 3DS challenge or Apple Pay sheet is cancelled
+
+completion.mode:
+
+client – SDK performs payment, then calls your hook
+
+(Reserved) server – attach results to form and submit to your server
+
+---
+
 ## ? Example Form
 
 ```html
@@ -86,12 +200,61 @@ checkout.mount('#checkout-container');
 
 ---
 
+### Apple Pay Requirements (Express)
+
+Apple Pay only renders when all apply:
+
+1. HTTPS on your site and the iframe host
+2. Supported browser/device with Apple Pay set up
+3. Your merchant domain validated (via your Monek account)
+4. The public key you use has Apple Pay enabled
+
+If the button doesn’t show:
+
+- Confirm window.ApplePaySession?.canMakePayments() is true
+- Check your key/merchant settings
+- Open DevTools console with debug: true to see logs
+
+---
+
+### Theming
+
+You can pass styling or set CSS variables:
+
+```css
+:root {
+  --monek-input-focus: #0ea5e9;
+  --monek-shadow: 0 10px 30px rgba(2,6,23,.08);
+}
+```
+```ts
+const options = {
+  styling: {
+    theme: 'light', // or 'dark'
+    core: { backgroundColor: '#fff', textColor: '#0f172a', borderRadius: 12 },
+    inputs: { inputBackgroundColor: '#fff', inputTextColor: '#0f172a' },
+    cssVars: { '--monek-input-focus': '#0ea5e9' }
+  }
+};
+```
+
+---
+
 ## ??? Project Structure
 
-- `src/sdk/` – SDK logic
-- `src/hostedFields/` – Hosted iframe entry point
-- `src/expressCheckout/` – Express checkout iframe entry point
-- `dist/` – All compiled builds (IIFE, UMD, ES)
+```bash
+src/
+  sdk/                    # Core SDK
+    core/
+      form/               # submission, helpers
+      iframe/             # messenger, createIframe
+      utils/              # logger, network, etc.
+      apple/              # Apple Pay flow
+    lib/                  # public components (CheckoutComponent, ExpressComponent)
+  hostedFields/           # hosted fields iframe app
+  expressCheckout/        # express iframe app
+dist/                     # built outputs (iife, umd, es)
+```
 
 ---
 
@@ -113,6 +276,13 @@ npm run build:es      # Only ES build
 - ? **ES Module** ? `import Monek`
 - ?? All iframes must be served via HTTPS for Apple Pay support
 - ?? Recommended to host via **S3 + CloudFront**
+
+---
+### Security notes
+
+Iframes are sandboxed. For postMessage + Apple Pay to work, we allow allow-scripts allow-same-origin. Lock messaging by verifying event.origin and by passing parentOrigin into the iframe URL (we do both).
+
+Always serve over HTTPS (required for Apple Pay).
 
 ---
 
