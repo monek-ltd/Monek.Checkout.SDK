@@ -4,7 +4,7 @@ export type Redirect = {
     method: 'GET' | 'POST';
 }
 
-export type CompletionMode = 'client' | 'form';
+export type CompletionMode = 'client' | 'form' | 'none';
 
 export type CompletionOptions = {
     mode?: CompletionMode; 

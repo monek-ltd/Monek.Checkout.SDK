@@ -20,40 +20,35 @@ export async function completeSubmission(
   helpers: Parameters<typeof runCompletionHook>[2]
 ): Promise<void>
 {
-  if (completionOptions?.mode === 'client')
-  {
-    const paymentResult = await pay(context.cardTokenId, context.sessionId, context.expiry, component);
-    const normalisedPaymentResponse = normalisePayment(paymentResult);
+    if (completionOptions?.mode === 'client') {
+        const paymentResult = await pay(context.cardTokenId, context.sessionId, context.expiry, component);
+        const normalisedPaymentResponse = normalisePayment(paymentResult);
 
-    const hookContext = { sessionId: context.sessionId, cardTokenId: context.cardTokenId, auth: context.auth, payment: paymentResult };
+        const hookContext = { sessionId: context.sessionId, cardTokenId: context.cardTokenId, auth: context.auth, payment: paymentResult };
 
-    if (normalisedPaymentResponse.status === 'approved')
-    {
-      if (completionOptions.onSuccess)
-      {
-        await runCompletionHook(completionOptions.onSuccess, hookContext, helpers);
-      }
-      else
-      {
-        throw new Error('Payment approved but no onSuccess handler');
-      }
+        if (normalisedPaymentResponse.status === 'approved') {
+            if (completionOptions.onSuccess) {
+                await runCompletionHook(completionOptions.onSuccess, hookContext, helpers);
+            }
+            else {
+                throw new Error('Payment approved but no onSuccess handler');
+            }
+        }
+        else {
+            if (completionOptions.onError) {
+                await runCompletionHook(completionOptions.onError, hookContext, helpers);
+            }
+            else {
+                throw new Error(`Payment error: ${normalisedPaymentResponse.reason}`);
+            }
+        }
+        return;
     }
-    else
-    {
-      if (completionOptions.onError)
-      {
-        await runCompletionHook(completionOptions.onError, hookContext, helpers);
-      }
-      else
-      {
-        throw new Error(`Payment error: ${normalisedPaymentResponse.reason}`);
-      }
-    }
-    return;
-  }
+    else if (completionOptions?.mode === 'form') {
 
-  // Server mode: attach fields and submit original form
-  attachHidden(form, 'CardTokenID', context.cardTokenId);
-  attachHidden(form, 'SessionID', context.sessionId);
-  form.submit();
+        // Server mode: attach fields and submit original form
+        attachHidden(form, 'CardTokenID', context.cardTokenId);
+        attachHidden(form, 'SessionID', context.sessionId);
+        form.submit();
+    }
 }
