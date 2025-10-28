@@ -46,10 +46,11 @@ declare global {
 
 function isApplePayBrowserAvailable(): boolean {
     try {
-        return Boolean(window.ApplePaySession && window.ApplePaySession.canMakePayments());
-    }
-    catch
-    {
+        return Boolean(
+            window.ApplePaySession &&
+            window.ApplePaySession.canMakePayments?.()
+        );
+    } catch {
         return false;
     }
 }
@@ -63,21 +64,16 @@ const ExpressCheckoutApp: React.FC = () => {
     const [applePayBrowserAvailable, setApplePayBrowserAvailable] = useState(false);
     const [applePayEnabledByMerchant, setApplePayEnabledByMerchant] = useState(false);
 
+    const applePayBtnRef = useRef<HTMLElement | null>(null);
+
     useEffect(() => {
         const available = isApplePayBrowserAvailable();
         setApplePayBrowserAvailable(available);
 
         if (available) {
-            iframeLogger.info("Apple Pay is available in this browser");
-
-            const btn = document.getElementById('apple-pay-button')
-            if (btn) {
-                btn.style.display = 'inline-block'
-                btn.addEventListener("click", handleApplePayClick)
-            }
-        }
-        else {
-            iframeLogger.warn("Apple Pay is NOT available in this browser");
+            console.log("Apple Pay is available in this browser");
+        } else {
+            console.warn("Apple Pay is NOT available in this browser");
         }
     }, []);
 
@@ -148,7 +144,19 @@ const ExpressCheckoutApp: React.FC = () => {
         window.parent.postMessage({ type: "ap-click" }, allowed);
     }, [applePayBrowserAvailable, applePayEnabledByMerchant]);
 
-    const shouldShowApplePay = applePayBrowserAvailable && applePayEnabledByMerchant;
+    useEffect(() => {
+        const btnEl = applePayBtnRef.current;
+        if (!btnEl) return;
+
+        btnEl.addEventListener("click", handleApplePayClick);
+
+        return () => {
+            btnEl.removeEventListener("click", handleApplePayClick);
+        };
+    }, [handleApplePayClick, applePayEnabledByMerchant, applePayBrowserAvailable]);
+
+    const shouldShowApplePay =
+        applePayBrowserAvailable && applePayEnabledByMerchant;
 
     return (
         <div
@@ -164,6 +172,10 @@ const ExpressCheckoutApp: React.FC = () => {
             {shouldShowApplePay && (
                 <apple-pay-button
                     id="apple-pay-button"
+                    // grab the DOM node for native listener binding
+                    ref={(el) => {
+                        applePayBtnRef.current = el as HTMLElement | null;
+                    }}
                     buttonstyle="black"
                     type="buy"
                     locale="en-US"
@@ -174,6 +186,7 @@ const ExpressCheckoutApp: React.FC = () => {
                         borderRadius: "6px",
                         padding: 0,
                         display: "inline-block",
+                        cursor: "pointer",
                     }}
                     aria-label="Pay with Apple Pay"
                 />
