@@ -46,7 +46,7 @@ declare global {
 
 function isApplePayBrowserAvailable(): boolean {
     try {
-        return Boolean(window.ApplePaySession && window.ApplePaySession.canMakePayments?.());
+        return Boolean(window.ApplePaySession && window.ApplePaySession.canMakePayments());
     }
     catch
     {
@@ -69,6 +69,12 @@ const ExpressCheckoutApp: React.FC = () => {
 
         if (available) {
             iframeLogger.info("Apple Pay is available in this browser");
+
+            const btn = document.getElementById('apple-pay-button')
+            if (btn) {
+                btn.style.display = 'inline-block'
+                btn.addEventListener("click", handleApplePayClick)
+            }
         }
         else {
             iframeLogger.warn("Apple Pay is NOT available in this browser");
@@ -161,7 +167,6 @@ const ExpressCheckoutApp: React.FC = () => {
                     buttonstyle="black"
                     type="buy"
                     locale="en-US"
-                    onClick={handleApplePayClick}
                     style={{
                         WebkitAppearance: "none",
                         width: "225px",
