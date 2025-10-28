@@ -101,7 +101,7 @@ export function setupSubmissionController(
             }
 
             // Completion
-            submitLogger.info('proceeding to completion', { mode: completionOptions?.mode ?? 'server' });
+            submitLogger.info('proceeding to completion', { mode: completionOptions?.mode ?? 'form' });
             const timerComplete = submitLogger.time('completeSubmission');
             await completeSubmission(
                 form,
