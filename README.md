@@ -56,12 +56,13 @@ The SDK is built as a **library** with multiple output formats:
         getCardholderDetails: () => ({
           name: document.querySelector('[name="billingName"]').value,
           email: document.querySelector('[name="billingEmail"]').value,
+          homePhone: document.querySelector('[name="billingPhone"]').value,
           billingAddress: {
             addressLine1: document.querySelector('[name="billingAddress1"]').value,
             addressLine2: document.querySelector('[name="billingAddress2"]').value,
             city: document.querySelector('[name="billingCity"]').value,
             postcode: document.querySelector('[name="billingPostcode"]').value,
-            country: '826', //UK
+            country: '826', //UK - Billing Country 
           },
         }),
       },
@@ -70,7 +71,8 @@ The SDK is built as a **library** with multiple output formats:
         onSuccess: (ctx, { redirect }) => redirect('/thank-you'),
         onError:   (ctx, { reenable }) => { reenable(); alert(ctx?.payment?.Message || 'Payment failed'); },
         onCancel:  (ctx, { reenable }) => reenable(),
-      }
+      },
+      countryCode: '826', //UK - Store Country
     };
 
     const checkout = sdk.createComponent('checkout', options);

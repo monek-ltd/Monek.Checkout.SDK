@@ -21,6 +21,17 @@ import { Logger, makeLogger, type LogLevel } from '../core/utils/Logger';
 type PublicKey = string;
 type CSSVars = Record<string, string>;
 
+type TokenInfo = {
+    sessionId: string;
+    cardTokenId: string;
+};
+
+let latestTokenInfo: TokenInfo | null = null;
+
+export function getLatestTokenInfo(): TokenInfo | null {
+    return latestTokenInfo;
+}
+
 export interface CheckoutInitOptions
 {
   frameUrl?: string;
@@ -67,6 +78,7 @@ export class CheckoutComponent implements CheckoutPort
   private readonly options: CheckoutInitOptions;
   private readonly publicKey: PublicKey;
   private readonly callbacks?: InitCallbacks;
+  private cardTokenId?: string;
 
   private frameUrl: string;
   private readonly targetOrigin: string; // iframe origin
@@ -142,6 +154,9 @@ export class CheckoutComponent implements CheckoutPort
   public getPublicKey(): string { return this.publicKey; }
   public getValidityId(): string | undefined { return this.options.validityId as string | undefined; }
   public getSourceIp(): Promise<string | undefined> { return this.sourceIp; }
+  public getCardTokenId(): string | undefined {
+        return this.cardTokenId;
+    }
 
   // ---------- Lifecycle ----------
   async mount(selector: string): Promise<void>
@@ -279,11 +294,28 @@ export class CheckoutComponent implements CheckoutPort
     this.debug('requestToken: start');
     this.messenger.post({ type: 'tokenise' });
 
-    return this.messenger.waitFor(
-      (message: FrameToParentMessage) => message.type === 'tokenised',
-      (message: FrameToParentMessage) => (message as Extract<FrameToParentMessage, { type: 'tokenised' }>).cardToken,
-      'Tokenisation timed out'
-    );
+      const cardTokenId = await this.messenger.waitFor(
+          (message: FrameToParentMessage) => message.type === 'tokenised',
+          (message: FrameToParentMessage) =>
+              (message as Extract<FrameToParentMessage, { type: 'tokenised' }>).cardToken,
+          'Tokenisation timed out'
+      );
+
+      this.cardTokenId = cardTokenId;
+
+      if (this.sessionId) {
+          latestTokenInfo = {
+              sessionId: this.sessionId,
+              cardTokenId,
+          };
+      }
+
+      this.debug('requestToken: stored token', {
+          sessionId: this.sessionId,
+          cardTokenId,
+      });
+
+      return cardTokenId;
   }
 
   // ---------- Internal helpers ----------
