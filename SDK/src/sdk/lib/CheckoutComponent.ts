@@ -79,6 +79,7 @@ export class CheckoutComponent implements CheckoutPort
   private readonly publicKey: PublicKey;
   private readonly callbacks?: InitCallbacks;
   private cardTokenId?: string;
+  private cardExpiry?: string;
 
   private frameUrl: string;
   private readonly targetOrigin: string; // iframe origin
@@ -157,6 +158,7 @@ export class CheckoutComponent implements CheckoutPort
   public getCardTokenId(): string | undefined {
         return this.cardTokenId;
     }
+  public getCardExpiry(): string | undefined { return this.cardExpiry; }
 
   // ---------- Lifecycle ----------
   async mount(selector: string): Promise<void>
@@ -276,11 +278,15 @@ export class CheckoutComponent implements CheckoutPort
     this.debug('requestExpiry: start');
     this.messenger.post({ type: 'getExpiry' });
 
-    return this.messenger.waitFor(
+    const cardExpiry = await this.messenger.waitFor(
       (message: FrameToParentMessage) => message.type === 'expiry',
       (message: FrameToParentMessage) => (message as Extract<FrameToParentMessage, { type: 'expiry' }>).expiry,
       'Expiry retrieval timed out'
-    );
+      );
+
+    this.cardExpiry = cardExpiry;
+
+    return cardExpiry;
   }
 
   public async requestToken(): Promise<string>
