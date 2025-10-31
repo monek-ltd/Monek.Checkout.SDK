@@ -96,6 +96,8 @@ export async function buildPaymentRequest(
 
         validityId: component.getValidityId(),
         channel: component.getChannel(),
+
+        paymentReference: component.getPaymentReference(),
     };
 }
 

@@ -31,6 +31,7 @@ export interface CheckoutPort
   // --- Optional metadata ---
   getValidityId(): string | undefined;
   getChannel(): string;
+  getPaymentReference(): string;
 
   // --- Environment info ---
   getSourceIp(): Promise<string | undefined>;

@@ -49,6 +49,7 @@ export interface CheckoutInitOptions
   channel?: string;
   debug?: boolean;
   logLevel?: string;
+  paymentReference?: string;
   [key: string]: unknown;
 }
 
@@ -157,8 +158,9 @@ export class CheckoutComponent implements CheckoutPort
   public getSourceIp(): Promise<string | undefined> { return this.sourceIp; }
   public getCardTokenId(): string | undefined {
         return this.cardTokenId;
-    }
+  }
   public getCardExpiry(): string | undefined { return this.cardExpiry; }
+  public getPaymentReference(): string { return this.options?.paymentReference ?? ""; }
 
   // ---------- Lifecycle ----------
   async mount(selector: string): Promise<void>
