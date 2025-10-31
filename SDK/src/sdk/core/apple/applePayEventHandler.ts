@@ -50,6 +50,7 @@ export async function applePayEventHandler(
     cardEntry: options.cardEntry,
     order: options.order,
     channel: options.channel,
+    paymentReference: options.paymentReference
   });
 
   const ApplePaySessionCtor = (window as any).ApplePaySession;

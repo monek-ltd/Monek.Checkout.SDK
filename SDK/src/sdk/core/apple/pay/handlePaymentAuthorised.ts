@@ -88,20 +88,20 @@ export async function handlePaymentAuthorised(params: HandlePaymentAuthorisedPar
 
     const authoriseBody = {
       sessionId,
-      settlementType: (options as any).settlementType ?? "Auto",
-      intent: (options as any).intent ?? "Purchase",
-      cardEntry: (options as any).cardEntry ?? "ECommerce",
-      order: (options as any).order ?? "Checkout",
+        settlementType: (options as ApplePayHandlerOptions).settlementType ?? "Auto",
+        intent: (options as ApplePayHandlerOptions).intent ?? "Purchase",
+        cardEntry: (options as ApplePayHandlerOptions).cardEntry ?? "ECommerce",
+        order: (options as ApplePayHandlerOptions).order ?? "Checkout",
 
       currencyCode: normalisedCurrencyNumeric,
       countryCode: normalisedCountryNumeric,
 
-      paymentReference: (options as any).paymentReference ?? undefined,
+        paymentReference: (options as ApplePayHandlerOptions).paymentReference ?? undefined,
       idempotencyToken,
-      validityId: (options as any).validityId ?? undefined,
-      channel: (options as any).channel ?? "Web",
+        validityId: (options as ApplePayHandlerOptions).validityId ?? undefined,
+        channel: (options as ApplePayHandlerOptions).channel ?? "Web",
       source,
-      sourceIpAddress: (options as any).sourceIpAddress ?? undefined,
+        sourceIpAddress: (options as ApplePayHandlerOptions).sourceIpAddress ?? undefined,
       url: currentUrl,
       basketDescription: description,
 
