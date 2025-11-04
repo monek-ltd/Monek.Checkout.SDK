@@ -61,11 +61,6 @@ export class ExpressComponent
             throw new Error(`Mount target '${selector}' not found`);
         }
 
-        const hostingForm = mountRoot.closest('form') as HTMLFormElement | null;
-        if (!hostingForm) {
-            throw new Error('Mount target must be inside a <form>');
-        }
-
         mountRoot.innerHTML = '';
 
         const sessionId = await createSession(this.publicKey);
