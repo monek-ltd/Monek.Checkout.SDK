@@ -50,6 +50,37 @@ html, body {
     text-align: var(--monek-text-align);
 }
 
+.hf-footer {
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--monek-input-placeholder);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.hf-footer__logo {
+    height: 14px;
+    width: auto;
+    display: block;
+}
+
+.hf-footer__divider {
+    color: var(--monek-input-placeholder);
+}
+
+.hf-footer__link {
+    color: inherit;
+    text-decoration: underline;
+}
+
+    .hf-footer__link:hover,
+    .hf-footer__link:focus-visible {
+        color: var(--monek-input-text);
+    }
+
 .hf-row {
     display: grid;
     grid-template-columns: 1fr 1fr;

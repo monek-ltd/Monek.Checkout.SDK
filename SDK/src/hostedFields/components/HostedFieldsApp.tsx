@@ -295,6 +295,37 @@ const HostedFieldsApp: React.FC = () => {
                     autoComplete="cc-csc"
                 />
             </div>
+            <div className="hf-footer">
+                <span>Payments powered by</span>
+                <img
+                    className="hf-footer__logo"
+                    src="https://cdn.monek.com/images/monek_141.png"
+                    alt="Monek"
+                    loading="lazy"
+                />
+                <span className="hf-footer__divider" aria-hidden="true">
+                    |
+                </span>
+                <a
+                    className="hf-footer__link"
+                    href="https://cdn.monek.com/policies/monek_terms_and_conditions.pdf"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    Terms
+                </a>
+                <span className="hf-footer__divider" aria-hidden="true">
+                    |
+                </span>
+                <a
+                    className="hf-footer__link"
+                    href="https://cdn.monek.com/policies/monek_privacy_policy.pdf"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    Privacy
+                </a>
+            </div>
         </div>
     );
 };
