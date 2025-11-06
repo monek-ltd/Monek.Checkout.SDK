@@ -9,7 +9,8 @@ export function buildApplePayPaymentRequest(input: ApplePayRequestInput): AppleP
 {
   return {
     merchantCapabilities: ["supports3DS", "supportsDebit", "supportsCredit"],
-    requiredBillingContactFields: ["postalAddress"],
+    requiredBillingContactFields: ["name", "email", "phone", "postalAddress"],
+    requiredShippingContactFields: ["name", "email", "phone", "postalAddress"],
     supportedNetworks: ["visa", "masterCard", "amex"],
     countryCode: input.countryAlpha2,
     currencyCode: input.currencyAlpha3,
