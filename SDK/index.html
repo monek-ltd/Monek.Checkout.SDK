@@ -77,6 +77,30 @@
              data-tip="Express surface (Apple Pay) mounts here. If hidden, check Apple Pay availability and that the key has Apple Pay enabled.">
         </div>
 
+        <div class="card applepay-context applepay-context--collapsed" aria-live="polite" id="applepay-card">
+            <div class="applepay-context__header">
+                <h3 class="applepay-context__title" id="applepay-title"></h3>
+
+                <div class="applepay-context__controls">
+                    <span id="apple-pay-status" class="badge badge--muted">Awaiting express checkout</span>
+                    <button type="button"
+                            id="applepay-toggle"
+                            class="applepay-toggle"
+                            aria-expanded="true"
+                            aria-controls="applepay-panel">
+                        Hide
+                    </button>
+                </div>
+            </div>
+
+            <div id="applepay-panel" class="applepay-context__panel" role="region" aria-labelledby="applepay-title">
+                <p id="apple-pay-hint" class="sub applepay-context__hint">
+                    Trigger an Apple Pay payment to see the captured customer details here.
+                </p>
+                <pre id="apple-pay-context" class="applepay-context__code">Trigger an Apple Pay payment to see the captured customer details here.</pre>
+            </div>
+        </div>
+
         <!-- Billing form -->
         <div class="two-col">
             <label>
@@ -221,6 +245,121 @@
             const basketTotalChargedEl = document.getElementById('basket-total-charged');
             const basketSummaryEl = document.getElementById('basket-summary');
             const chargeDemoEl = document.getElementById('charge-demo');
+            const applePayStatusEl = document.getElementById('apple-pay-status');
+            const applePayContextEl = document.getElementById('apple-pay-context');
+            const applePayHintEl = document.getElementById('apple-pay-hint');
+            const applePayCardEl = document.getElementById('applepay-card');
+            const applePayPanelEl = document.getElementById('applepay-panel');
+            const applePayToggleEl = document.getElementById('applepay-toggle');
+
+            const COLLAPSE_KEY = 'applepay_context_collapsed';
+
+            function setApplePayCollapsed(collapsed) {
+                if (collapsed) {
+                    applePayCardEl.classList.add('applepay-context--collapsed');
+                    applePayToggleEl.setAttribute('aria-expanded', 'false');
+                    applePayToggleEl.textContent = 'Show';
+                } else {
+                    applePayCardEl.classList.remove('applepay-context--collapsed');
+                    applePayToggleEl.setAttribute('aria-expanded', 'true');
+                    applePayToggleEl.textContent = 'Hide';
+                }
+                try { localStorage.setItem(COLLAPSE_KEY, String(collapsed)); } catch { }
+            }
+
+            (function initApplePayCollapsed() {
+                let collapsed = true;
+                try {
+                    collapsed = localStorage.getItem(COLLAPSE_KEY) === 'true';
+                } catch { }
+                setApplePayCollapsed(collapsed);
+            })();
+
+            applePayToggleEl.addEventListener('click', () => {
+                const isExpanded = applePayToggleEl.getAttribute('aria-expanded') !== 'false';
+                setApplePayCollapsed(isExpanded); 
+            });
+
+
+            const APPLE_PAY_BADGE_CLASS = {
+                idle: 'badge badge--muted',
+                loading: 'badge badge--muted',
+                success: 'badge badge--success',
+                error: 'badge badge--error',
+                cancelled: 'badge badge--neutral',
+            };
+
+            const APPLE_PAY_STATUS_TEXT = {
+                idle: 'Awaiting express checkout',
+                loading: 'Loading…',
+                success: 'Success',
+                error: 'Error',
+                cancelled: 'Cancelled',
+            };
+
+            const APPLE_PAY_HINT_TEXT = {
+                idle: 'Trigger an Apple Pay payment to see the captured customer details here.',
+                loading: 'Mounting the express component…',
+                success: 'context.applePay now contains the customer details returned by Apple Pay.',
+                error: 'Even if the authorisation fails you can inspect context.applePay for any contact details.',
+                cancelled: 'If the sheet is dismissed you may still receive partial contact details.',
+            };
+
+            function updateApplePayPreview({ status = 'idle', context, message } = {}) {
+                if (!applePayStatusEl || !applePayContextEl) {
+                    return;
+                }
+
+                const badgeClass = APPLE_PAY_BADGE_CLASS[status] ?? APPLE_PAY_BADGE_CLASS.idle;
+                const statusLabel = APPLE_PAY_STATUS_TEXT[status] ?? APPLE_PAY_STATUS_TEXT.idle;
+                const hint = APPLE_PAY_HINT_TEXT[status] ?? APPLE_PAY_HINT_TEXT.idle;
+
+                applePayStatusEl.className = badgeClass;
+                applePayStatusEl.textContent = statusLabel;
+
+                if (applePayHintEl) {
+                    applePayHintEl.textContent = hint;
+                }
+
+                if (status === 'idle') {
+                    applePayContextEl.textContent = 'Trigger an Apple Pay payment to see the captured customer details here.';
+                    return;
+                }
+
+                if (status === 'loading') {
+                    applePayContextEl.textContent = 'Mounting express component…';
+                    return;
+                }
+
+                if (status === 'success') {
+                    applePayContextEl.textContent = context
+                        ? JSON.stringify(context, null, 2)
+                        : 'context.applePay was undefined for this transaction.';
+                    return;
+                }
+
+                if (status === 'cancelled') {
+                    applePayContextEl.textContent = context
+                        ? JSON.stringify(context, null, 2)
+                        : 'The sheet was cancelled before Apple Pay returned any contact details.';
+                    return;
+                }
+
+                if (status === 'error') {
+                    const payload = {
+                        message: message ?? 'Payment failed',
+                        applePay: context ?? null,
+                    };
+                    applePayContextEl.textContent = JSON.stringify(payload, null, 2);
+                    return;
+                }
+
+                applePayContextEl.textContent = context
+                    ? JSON.stringify(context, null, 2)
+                    : 'No Apple Pay details available for this state.';
+            }
+
+            updateApplePayPreview({ status: 'idle' });
 
             let basket = [
                 { id: 'coffee', name: 'Single-Origin Coffee Beans', variant: '250g · Ethiopia', unitMinor: 850, qty: 1 },
@@ -292,11 +431,12 @@
             function setLoadingPlaceholders() {
                 document.querySelector('#sdk-container').innerHTML = '<div style="padding:8px;color:#666">Loading…</div>';
                 document.querySelector('#sdk-express-container').innerHTML = '<div style="padding:8px;color:#666">Loading…</div>';
+                updateApplePayPreview({ status: 'loading' });
             }
 
             function buildOptions(stylingPreset, isExpress) {
                 const base = window.__MONEK_FRAME_BASE__;
-                return {
+                const options = {
                     frameUrl: isExpress
                         ? `${base}/src/expressCheckout/express-checkout.html`
                         : `${base}/src/hostedFields/hosted-fields.html`,
@@ -338,6 +478,41 @@
                     appleMerchantLabel: 'Demo Merchant',
                     paymentReference: 'My-Payment-Reference'
                 };
+
+                if (isExpress) {
+                    options.completion = {
+                        mode: 'client',
+                        onSuccess: (ctx, { redirect }) => {
+                            updateApplePayPreview({ status: 'success', context: ctx?.applePay });
+                            setTimeout(() => redirect(`/demo-complete`), 350);
+                        },
+                        onError: (ctx, { reenable }) => {
+                            reenable();
+                            updateApplePayPreview({
+                                status: 'error',
+                                context: ctx?.applePay,
+                                message: ctx?.payment?.Message || 'Payment failed',
+                            });
+                            alert(ctx?.payment?.Message || 'Payment failed');
+                        },
+                        onCancel: (ctx, { reenable }) => {
+                            reenable();
+                            updateApplePayPreview({ status: 'cancelled', context: ctx?.applePay });
+                        },
+                    };
+                } else {
+                    options.completion = {
+                        mode: 'client',
+                        onSuccess: (ctx, { redirect }) => redirect(`/demo-complete`),
+                        onError: (ctx, { reenable }) => {
+                            reenable();
+                            alert(ctx?.payment?.Message || 'Payment failed');
+                        },
+                        onCancel: (ctx, { reenable }) => reenable(),
+                    };
+                }
+
+                return options;
             }
 
             async function destroyComponents() {
@@ -353,6 +528,7 @@
                 await checkout.mount('#sdk-container');
                 express = sdk.createComponent('express', buildOptions(preset, true));
                 await express.mount('#sdk-express-container');
+                updateApplePayPreview({ status: 'idle' });
             }
 
             async function initSdkForKey(keyCode) {
