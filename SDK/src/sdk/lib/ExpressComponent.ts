@@ -75,7 +75,7 @@ export class ExpressComponent
         if (this.options.applePayEnabled == true) // || Gpay ect...
         {
             const iframe = createSandboxedIframe(iframeSrc, DEFAULT_IFRAME_HEIGHT);
-            iframe.setAttribute('payment', '*');
+            iframe.setAttribute('allow', 'payment *');
 
             mountRoot.appendChild(iframe);
             this.iframe = iframe;
