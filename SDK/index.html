@@ -150,6 +150,25 @@
     <!-- The built SDK (IIFE). -->
     <script src="/monek-checkout.iife.js"></script>
     <script>
+        (function () {
+            function getFrameBase() {
+                const host = location.hostname.toLowerCase();
+
+                if (host === 'localhost' || host === '127.0.0.1') {
+                    return 'https://dev-checkout-js.monek.com';
+                }
+
+                if (host === 'dev-checkout-js.monek.com' || host.startsWith('dev-')) {
+                    return 'https://dev-checkout-js.monek.com';
+                }
+
+                return 'https://checkout-js.monek.com';
+            }
+
+            window.__MONEK_FRAME_BASE__ = getFrameBase();
+        })();
+    </script>
+    <script>
         (async function bootstrap() {
             window.addEventListener('message', (evt) => {
                 console.log('[DEMO PAGE]:message-snoop', evt.data, evt);
@@ -160,9 +179,15 @@
                 return;
             }
 
+            const host = location.hostname.toLowerCase();
+
             const KEYS = {
-                A: 'test_73cd746315f242ce9785d2775fbd5164', // 0000015
-                B: 'live_105aae69a7b546aead763cd55d9cce13', // 0150185
+                A: host === 'dev-checkout-js.monek.com' || host.startsWith('dev-')
+                    ? 'test_9290ecf10347472fae33addb0438bbde' // 0000894
+                    : 'test_73cd746315f242ce9785d2775fbd5164', // 0000015
+                B: host === 'dev-checkout-js.monek.com' || host.startsWith('dev-')
+                    ? 'live_312ede4ef0c840bea54e3a6a40773a23' // 0000894
+                    : 'live_105aae69a7b546aead763cd55d9cce13', // 0150185
             };
             const params = new URLSearchParams(location.search);
             let currentKey = (params.get('key') === 'B') ? 'B' : 'A';
@@ -222,20 +247,20 @@
                     const row = document.createElement('div');
                     row.className = 'basket__row';
                     row.innerHTML = `
-                <div class="basket__thumb" aria-hidden="true">img</div>
-                <div>
-                  <div class="basket__title">${item.name}</div>
-                  <div class="basket__meta">${item.variant}</div>
-                </div>
-                <div>
-                  <div class="basket__qty" aria-label="Quantity">
-                    <button type="button" data-act="dec" data-id="${item.id}" aria-label="Decrease quantity">-</button>
-                    <span aria-live="polite">${item.qty}</span>
-                    <button type="button" data-act="inc" data-id="${item.id}" aria-label="Increase quantity">+</button>
-                  </div>
-                </div>
-                <div class="basket__price">${formatMinor(item.unitMinor * item.qty)}</div>
-              `;
+                    <div class="basket__thumb" aria-hidden="true">img</div>
+                    <div>
+                      <div class="basket__title">${item.name}</div>
+                      <div class="basket__meta">${item.variant}</div>
+                    </div>
+                    <div>
+                      <div class="basket__qty" aria-label="Quantity">
+                        <button type="button" data-act="dec" data-id="${item.id}" aria-label="Decrease quantity">-</button>
+                        <span aria-live="polite">${item.qty}</span>
+                        <button type="button" data-act="inc" data-id="${item.id}" aria-label="Increase quantity">+</button>
+                      </div>
+                    </div>
+                    <div class="basket__price">${formatMinor(item.unitMinor * item.qty)}</div>
+                  `;
                     const remove = document.createElement('button');
                     remove.className = 'basket__remove';
                     remove.textContent = 'Remove';
@@ -270,10 +295,11 @@
             }
 
             function buildOptions(stylingPreset, isExpress) {
+                const base = window.__MONEK_FRAME_BASE__;
                 return {
-                    //frameUrl: isExpress
-                        //? 'https://dev-checkout-js.monek.com/src/expressCheckout/express-checkout.html'
-                        //: 'https://dev-checkout-js.monek.com/src/hostedFields/hosted-fields.html',
+                    frameUrl: isExpress
+                        ? `${base}/src/expressCheckout/express-checkout.html`
+                        : `${base}/src/hostedFields/hosted-fields.html`,
                     callbacks: {
                         getAmount: () => {
                             const { totalMinor } = basketTotals();
