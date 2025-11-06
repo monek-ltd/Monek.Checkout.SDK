@@ -54,7 +54,7 @@ export interface CheckoutInitOptions
 }
 
 const DEFAULT_FRAME_URL = 'https://checkout-js.monek.com/src/hostedFields/hosted-fields.html';
-const DEFAULT_IFRAME_HEIGHT = '120px';
+const DEFAULT_IFRAME_HEIGHT = '155px';
 const DEFAULT_TIMEOUT_MS = 20_000;
 const DEFAULT_COUNTRY = 826;
 const DEFAULT_CHANNEL = 'Web';
