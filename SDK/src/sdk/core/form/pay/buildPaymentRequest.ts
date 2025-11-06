@@ -1,5 +1,6 @@
 import type { CheckoutPort } from '../../../types/checkout-port';
 import { normaliseAmount } from '../../utils/normaliseCurrency';
+import { normalisePhoneNumber } from '../../utils/normalisePhoneNumber';
 
 export async function buildPaymentRequest(
   cardTokenId: string,
@@ -55,6 +56,8 @@ export async function buildPaymentRequest(
         ? `web:${navigator.userAgent}`
         : 'EmbeddedCheckout';
 
+    const normalisedPhoneNumber = normalisePhoneNumber(cardholderInformation.phone);
+
     return {
         sessionId,
         tokenId: cardTokenId,
@@ -77,7 +80,7 @@ export async function buildPaymentRequest(
         cardHolder: {
             name: cardholderInformation.name,
             emailAddress: cardholderInformation.email,
-            phoneNumber: cardholderInformation.phone,
+            phoneNumber: normalisedPhoneNumber ?? cardholderInformation.phone,
             ...(billing?.addressLine1 ? { billingStreet1: billing.addressLine1 } : {}),
             ...(billing?.addressLine2 ? { billingStreet2: billing.addressLine2 } : {}),
             ...(billing?.city ? { billingCity: billing.city } : {}),

@@ -2,6 +2,7 @@ import { API } from '../../../config';
 import { collectBrowserInformation } from '../../utils/collectBrowserData';
 import { getWindowSize } from './challenge'
 import { normaliseAmount } from '../../utils/normaliseCurrency';
+import { normalisePhoneNumber } from '../../utils/normalisePhoneNumber';
 import type { ThreeDSAuthenticationPayload } from './three-ds-payloads';
 import type { InitCallbacks } from '../../../types/callbacks';
 import type { ChallengeSize } from '../../../types/challenge-window'
@@ -71,6 +72,10 @@ async function buildAuthenticationRequest(cardTokenId: string, sessionId: string
     const expiryYear = expiry.split('/')[1];
 
     const browserData = await collectBrowserInformation(ip);
+    const normalisedPhoneNumber = normalisePhoneNumber(cardholderInformation.phone);
+    const cardholderInformationWithNormalisedPhone = normalisedPhoneNumber
+        ? { ...cardholderInformation, phone: normalisedPhoneNumber }
+        : cardholderInformation;
 
     return {
       sessionId,
@@ -80,7 +85,7 @@ async function buildAuthenticationRequest(cardTokenId: string, sessionId: string
           currencyCode: normalisedAmount.currencyNumeric
       },                                  
       intent: 'purchase',
-      cardholderInformation,                
+      cardholderInformation: cardholderInformationWithNormalisedPhone, 
       browserInformation: browserData,
       description,
       cardExpiryMonth: expiryMonth,

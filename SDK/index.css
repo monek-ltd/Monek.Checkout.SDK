@@ -141,7 +141,32 @@ a {
     border-radius: 999px;
     background: #f2f4f7;
     color: #111;
+    border: 1px solid transparent;
+}
+
+.badge--muted {
+    background: #f2f4f7;
+    color: #111;
     border: 1px solid #e3e6eb;
+    border-color: #e3e6eb;
+}
+
+.badge--success {
+    background: #dcfce7;
+    color: #166534;
+    border-color: #bbf7d0;
+}
+
+.badge--error {
+    background: #fee2e2;
+    color: #991b1b;
+    border-color: #fecaca;
+}
+
+.badge--neutral {
+    background: #e0f2fe;
+    color: #0c4a6e;
+    border-color: #bae6fd;
 }
 
 hr {
@@ -150,6 +175,69 @@ hr {
     background: var(--border);
     margin: 18px 0;
 }
+
+.applepay-context {
+    margin-top: 16px;
+}
+
+.applepay-context__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.applepay-context__title {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.applepay-context__hint {
+    margin-top: 8px;
+    margin-bottom: 12px;
+    color: var(--muted);
+}
+
+.applepay-context__code {
+    margin: 0;
+    padding: 12px 14px;
+    background: color-mix(in srgb, var(--panel) 85%, var(--text) 15%);
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 220px;
+    overflow: auto;
+}
+
+.applepay-context__controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.applepay-toggle {
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: color-mix(in oklab, var(--panel) 92%, var(--text) 8%);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 12px;
+}
+
+    .applepay-toggle:hover {
+        background: color-mix(in oklab, var(--panel) 85%, var(--text) 15%);
+    }
+
+.applepay-context--collapsed .applepay-context__panel {
+    display: none;
+}
+
 
 /* =========================
    Tooltip (accessible)

@@ -121,6 +121,12 @@ Both modes support:
 - onError(context, helpers)
 - onCancel(context, helpers)
 
+When the express Apple Pay surface completes, the `context` argument also includes an `applePay` object so you can access the
+customer information that Apple collected during the sheet interaction. This surface exposes the payer email/phone/name when
+available, as well as normalised copies of the billing and shipping contacts (address lines, postal code, country, etc.) and
+the selected shipping method. Use this to pre-fill your order confirmation or update your customer record without requesting
+the same information twice.
+
 ## How to Embed Different Formats
 
 ### ? IIFE (recommended for plain sites)

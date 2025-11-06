@@ -1,4 +1,9 @@
-import type { CompletionOptions, CompletionHelpers, CompletionContext } from "../../../types/completion";
+import type {
+    CompletionOptions,
+    CompletionHelpers,
+    CompletionContext,
+    ApplePayCompletionDetails
+} from "../../../types/completion";
 import type { InitCallbacks } from "../../../types/callbacks";
 import type { ApplePayHandlerOptions } from "../applePayEventHandler";
 
@@ -130,6 +135,8 @@ export async function handlePaymentAuthorised(params: HandlePaymentAuthorisedPar
 
     const approved = String(paymentResponse?.result ?? "").toUpperCase() === "SUCCESS";
 
+    const applePayDetails = buildApplePayCompletionDetails(paymentData);
+
     session.completePayment({
       status: approved
         ? (window as any).ApplePaySession.STATUS_SUCCESS
@@ -141,7 +148,8 @@ export async function handlePaymentAuthorised(params: HandlePaymentAuthorisedPar
       sessionId,
       cardTokenId: paymentData?.token?.transactionIdentifier ?? "applepay",
       auth: { applePay: redactedApplePayToken(paymentData?.token) },
-      payment: paymentResponse
+      payment: paymentResponse,
+      ...(applePayDetails ? { applePay: applePayDetails } : {})
     };
 
     await new Promise(resolve => setTimeout(resolve, 150));
@@ -192,6 +200,141 @@ export async function handlePaymentAuthorised(params: HandlePaymentAuthorisedPar
 
     logger.info("handlePaymentAuthorised: end (exception)");
   }
+}
+
+function buildApplePayCompletionDetails(payment?: ApplePayJS.ApplePayPayment): ApplePayCompletionDetails | undefined {
+    if (!payment) {
+        return undefined;
+    }
+
+    const paymentWithExtras = payment as ApplePayJS.ApplePayPayment & {
+        shippingMethod?: ApplePayJS.ApplePayShippingMethod;
+    };
+
+    const billingContact = normaliseApplePayContact(payment.billingContact);
+    const shippingContact = normaliseApplePayContact(payment.shippingContact);
+    const shippingMethod = normaliseApplePayShippingMethod(paymentWithExtras.shippingMethod);
+
+    const payerEmail = billingContact?.emailAddress ?? shippingContact?.emailAddress ?? undefined;
+    const payerPhone = billingContact?.phoneNumber ?? shippingContact?.phoneNumber ?? undefined;
+    const payerName = derivePayerName(shippingContact) ?? derivePayerName(billingContact);
+
+    if (
+        !billingContact &&
+        !shippingContact &&
+        !shippingMethod &&
+        !payerEmail &&
+        !payerPhone &&
+        !payerName
+    ) {
+        return undefined;
+    }
+
+    return {
+        payerEmail,
+        payerPhone,
+        payerName,
+        billingContact,
+        shippingContact,
+        shippingMethod,
+    };
+}
+
+function normaliseApplePayContact(contact?: ApplePayJS.ApplePayPaymentContact): ApplePayCompletionDetails["billingContact"] {
+    if (!contact) {
+        return undefined;
+    }
+
+    const extendedContact = contact as ApplePayJS.ApplePayPaymentContact & {
+        middleName?: string;
+        subLocality?: string;
+        supplementarySubLocality?: string;
+        organisationName?: string;
+        organizationName?: string;
+        phoneticMiddleName?: string;
+    };
+
+    const addressLines = Array.isArray(contact.addressLines) && contact.addressLines.length > 0
+        ? [...contact.addressLines]
+        : undefined;
+
+    const organisationName =
+        extendedContact.organisationName ??
+        extendedContact.organizationName ??
+        undefined;
+
+    const summary = {
+        emailAddress: contact.emailAddress ?? undefined,
+        phoneNumber: contact.phoneNumber ?? undefined,
+        givenName: contact.givenName ?? undefined,
+        familyName: contact.familyName ?? undefined,
+        middleName: extendedContact.middleName ?? undefined,
+        phoneticGivenName: contact.phoneticGivenName ?? undefined,
+        phoneticFamilyName: contact.phoneticFamilyName ?? undefined,
+        phoneticMiddleName: extendedContact.phoneticMiddleName ?? undefined,
+        organisationName,
+        addressLines,
+        locality: contact.locality ?? undefined,
+        subLocality: extendedContact.subLocality ?? contact.subLocality ?? undefined,
+        supplementarySubLocality: extendedContact.supplementarySubLocality ?? undefined,
+        postalCode: contact.postalCode ?? undefined,
+        administrativeArea: contact.administrativeArea ?? undefined,
+        subAdministrativeArea: contact.subAdministrativeArea ?? undefined,
+        country: contact.country ?? undefined,
+        countryCode: contact.countryCode ?? undefined,
+    } satisfies ApplePayCompletionDetails["billingContact"];
+
+    const hasValue = Object.values(summary).some(value => {
+        if (Array.isArray(value)) {
+            return value.length > 0;
+        }
+
+        return value !== undefined && value !== null && value !== "";
+    });
+
+    return hasValue ? summary : undefined;
+}
+
+function normaliseApplePayShippingMethod(
+    method?: ApplePayJS.ApplePayShippingMethod
+): ApplePayCompletionDetails["shippingMethod"] {
+    if (!method) {
+        return undefined;
+    }
+
+    const extendedMethod = method as ApplePayJS.ApplePayShippingMethod & {
+        type?: string;
+    };
+
+    const summary = {
+        amount: method.amount ?? undefined,
+        label: method.label ?? undefined,
+        detail: method.detail ?? undefined,
+        identifier: method.identifier ?? undefined,
+        type: extendedMethod.type ? String(extendedMethod.type) : undefined,
+    } satisfies ApplePayCompletionDetails["shippingMethod"];
+
+    const hasValue = Object.values(summary).some(value => value !== undefined && value !== null && value !== "");
+
+    return hasValue ? summary : undefined;
+}
+
+function derivePayerName(contact?: ApplePayCompletionDetails["billingContact"]): string | undefined {
+    if (!contact) {
+        return undefined;
+    }
+
+    const parts = [contact.givenName, contact.middleName, contact.familyName].filter(Boolean) as string[];
+
+    if (parts.length > 0) {
+        return parts.join(" ");
+    }
+
+    if (contact.organisationName) {
+        return contact.organisationName;
+    }
+
+    return undefined;
 }
 
 function redactedApplePayToken(token: any): Record<string, unknown> | undefined
