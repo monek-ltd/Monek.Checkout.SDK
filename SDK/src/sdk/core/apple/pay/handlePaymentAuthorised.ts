@@ -10,6 +10,7 @@ import type { ApplePayHandlerOptions } from "../applePayEventHandler";
 import { Logger } from "../../utils/Logger";
 import { authorisedPayment } from "./authorisedPayment";
 import { invokeCompletion } from "../invokeCompletion";
+import { mapApplePayPayment } from "../utils/mapApplePayContact";
 
 type HandlePaymentAuthorisedParams = {
   session: any;
@@ -49,6 +50,22 @@ export async function handlePaymentAuthorised(params: HandlePaymentAuthorisedPar
   });
 
   const paymentData = event.payment;
+
+  if (callbacks?.onExpressPaymentDetails)
+  {
+    const details = mapApplePayPayment(paymentData, sessionId);
+    if (details)
+    {
+      try
+      {
+        await callbacks.onExpressPaymentDetails(details);
+      }
+      catch (error)
+      {
+        logger.warn("onExpressPaymentDetails threw; continuing", { error: (error as Error)?.message });
+      }
+    }
+  }
 
   if (!paymentData?.token)
   {
@@ -322,17 +339,17 @@ function normaliseApplePayShippingMethod(
 function derivePayerName(contact?: ApplePayCompletionDetails["billingContact"]): string | undefined {
     if (!contact) {
         return undefined;
-    }
+}
 
     const parts = [contact.givenName, contact.middleName, contact.familyName].filter(Boolean) as string[];
 
     if (parts.length > 0) {
         return parts.join(" ");
-    }
+}
 
     if (contact.organisationName) {
         return contact.organisationName;
-    }
+}
 
     return undefined;
 }
