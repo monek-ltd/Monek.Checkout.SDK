@@ -106,7 +106,8 @@ a {
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
-    margin: 10px 0;
+    max-width: 820px;
+    margin: 0 auto 16px;
 }
 
     .toolbar button {
