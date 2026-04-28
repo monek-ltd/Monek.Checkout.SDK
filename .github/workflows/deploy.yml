@@ -20,27 +20,30 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: "npm"
           cache-dependency-path: SDK/package-lock.json
-          
+
+      - name: Test for vulnerabilities
+        working-directory: SDK
+        run: npm audit
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-            audience: sts.amazonaws.com
-            aws-region: ${{ env.AWS_REGION }}
-            role-to-assume: ${{ secrets.PIPELINE_EXECUTION_ROLE }}
-            role-session-name: feature-deployment
-            role-duration-seconds: 3600
-            role-skip-session-tagging: true
+          audience: sts.amazonaws.com
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.PIPELINE_EXECUTION_ROLE }}
+          role-session-name: feature-deployment
+          role-duration-seconds: 3600
+          role-skip-session-tagging: true
 
       - name: Install dependencies
-        continue-on-error: true
         working-directory: SDK
-        run: npm install
-          
+        run: npm ci
+
       - name: Build
         working-directory: SDK
         run: npm run build
-          
+
       - name: Deploy
         run: aws s3 sync ./SDK/dist s3://${{ env.SDK_BUCKET }} --delete
