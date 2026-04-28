@@ -1,8 +1,9 @@
 <!doctype html>
 <html lang="en">
+
 <head>
     <meta charset="utf-8" />
-    <title>Verifying your payment…</title>
+    <title>Verifying your paymentâ€¦</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
         body {
@@ -22,7 +23,7 @@
             background: #fff;
             padding: 24px;
             border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0,0,0,.12);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, .12);
             text-align: center;
             width: min(520px, 92vw);
         }
@@ -43,6 +44,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="wrap">
         <div class="card">
@@ -52,22 +54,27 @@
         </div>
     </div>
     <script>
-      (function () {
-        function qp(name) {
-          const m = new URLSearchParams(location.search).get(name);
-          return m || undefined;
-        }
+        (function () {
+            function qp(name) {
+                const m = new URLSearchParams(location.search).get(name);
+                return m || undefined;
+            }
 
-        const payload = {
-          type: '3ds.challenge.close'
-        };
+            const payload = {
+                type: '3ds.challenge.close'
+            };
 
-        document.getElementById('close')?.addEventListener('click', function () {
-          try {
-            window.parent.postMessage(payload, '*');
-          } catch (e) { /* ignore */ }
-        });
-      })();
+            const parentOrigin = qp('parentOrigin');
+
+            if (parentOrigin) {
+                document.getElementById('close')?.addEventListener('click', function () {
+                    try {
+                        window.parent.postMessage(payload, '*');
+                    } catch (e) { /* ignore */ }
+                });
+            }
+        })();
     </script>
 </body>
+
 </html>

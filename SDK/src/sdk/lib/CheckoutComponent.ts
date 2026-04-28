@@ -22,18 +22,17 @@ type PublicKey = string;
 type CSSVars = Record<string, string>;
 
 type TokenInfo = {
-    sessionId: string;
-    cardTokenId: string;
+  sessionId: string;
+  cardTokenId: string;
 };
 
 let latestTokenInfo: TokenInfo | null = null;
 
 export function getLatestTokenInfo(): TokenInfo | null {
-    return latestTokenInfo;
+  return latestTokenInfo;
 }
 
-export interface CheckoutInitOptions
-{
+export interface CheckoutInitOptions {
   frameUrl?: string;
   styling?: StylingOptions;
   completion?: CompletionOptions;
@@ -59,8 +58,7 @@ const DEFAULT_TIMEOUT_MS = 20_000;
 const DEFAULT_COUNTRY = 826;
 const DEFAULT_CHANNEL = 'Web';
 
-function normalizeOptions(optionsInput: CheckoutInitOptions = {}): CheckoutInitOptions
-{
+function normalizeOptions(optionsInput: CheckoutInitOptions = {}): CheckoutInitOptions {
   return {
     ...optionsInput,
     settlementType: (optionsInput.settlementType ?? 'Auto') as SettlementType,
@@ -74,8 +72,7 @@ function normalizeOptions(optionsInput: CheckoutInitOptions = {}): CheckoutInitO
   };
 }
 
-export class CheckoutComponent implements CheckoutPort
-{
+export class CheckoutComponent implements CheckoutPort {
   private readonly options: CheckoutInitOptions;
   private readonly publicKey: PublicKey;
   private readonly callbacks?: InitCallbacks;
@@ -96,11 +93,10 @@ export class CheckoutComponent implements CheckoutPort
   private sessionId?: string;
 
   private sourceIp: Promise<string | undefined>;
-  
+
   private readonly logger: Logger;
 
-  constructor(publicKey: PublicKey, options: CheckoutInitOptions)
-  {
+  constructor(publicKey: PublicKey, options: CheckoutInitOptions) {
     this.publicKey = this.ensurePublicKey(publicKey);
     this.options = normalizeOptions(options);
 
@@ -112,32 +108,28 @@ export class CheckoutComponent implements CheckoutPort
     this.callbacks = this.options.callbacks as InitCallbacks | undefined;
 
     //TODO Move to Validate
-    if (this.options?.completion?.mode === 'client' && !this.options?.completion?.onSuccess)
-    {
+    if (this.options?.completion?.mode === 'client' && !this.options?.completion?.onSuccess) {
       throw new Error('Client-side completion requires an onSuccess callback.');
     }
 
     this.themeVars = toCssVars(normaliseStyling(this.options.styling as StylingOptions));
     this.sourceIp = getClientIpViaIpify();
-    
+
     this.logger = makeLogger('CheckoutComponent', Boolean(this.options.debug), (this.options.logLevel ?? "debug") as LogLevel);
     this.debug('CheckoutComponent: constructed', { frameUrl: this.frameUrl, targetOrigin: this.targetOrigin });
   }
 
   // ---------- Public getters ----------
   public getCardEntry(): CardEntry { return this.options.cardEntry as CardEntry; }
-  public getCallbacks(): InitCallbacks
-  {
-    if (!this.callbacks)
-    {
+  public getCallbacks(): InitCallbacks {
+    if (!this.callbacks) {
       throw new Error('Callbacks not set. Provide them during instantiation.');
     }
     return this.callbacks;
   }
   public getChallengeOptions(): ChallengeOptions { return this.options.challenge as ChallengeOptions; }
   public getChannel(): string { return this.options.channel as string; }
-  public getCountryCode(): { alpha2: string; alpha3: string; numeric: string }
-  {
+  public getCountryCode(): { alpha2: string; alpha3: string; numeric: string } {
     return normaliseCountryFull(this.options.countryCode as number | string);
   }
   public getIntent(): Intent { return this.options.intent as Intent; }
@@ -145,10 +137,8 @@ export class CheckoutComponent implements CheckoutPort
   public getSettlementType(): SettlementType { return this.options.settlementType as SettlementType; }
   public getStoreCardDetails(): boolean { return this.options.storeCardDetails as boolean; }
   public getCompletionOptions(): CompletionOptions | undefined { return this.options.completion as CompletionOptions | undefined; }
-  public getSessionId(): string
-  {
-    if (!this.sessionId)
-    {
+  public getSessionId(): string {
+    if (!this.sessionId) {
       throw new Error('Session ID not set. Call mount() first.');
     }
     return this.sessionId;
@@ -156,31 +146,28 @@ export class CheckoutComponent implements CheckoutPort
   public getPublicKey(): string { return this.publicKey; }
   public getValidityId(): string | undefined { return this.options.validityId as string | undefined; }
   public getSourceIp(): Promise<string | undefined> { return this.sourceIp; }
+  public getParentOrigin(): string { return this.parentOrigin; }
   public getCardTokenId(): string | undefined {
-        return this.cardTokenId;
+    return this.cardTokenId;
   }
   public getCardExpiry(): string | undefined { return this.cardExpiry; }
   public getPaymentReference(): string { return this.options?.paymentReference ?? ""; }
 
   // ---------- Lifecycle ----------
-  async mount(selector: string): Promise<void>
-  {
+  async mount(selector: string): Promise<void> {
     this.debug('mount: start', { selector });
 
-    if (this.iframe)
-    {
+    if (this.iframe) {
       this.destroy();
     }
 
     const mountRoot = document.querySelector(selector);
-    if (!mountRoot)
-    {
+    if (!mountRoot) {
       throw new Error(`[Checkout] Mount target '${selector}' not found`);
     }
 
     const hostingForm = mountRoot.closest('form');
-    if (!hostingForm)
-    {
+    if (!hostingForm) {
       throw new Error('[Checkout] Mount target must be inside a <form>');
     }
 
@@ -205,11 +192,9 @@ export class CheckoutComponent implements CheckoutPort
       DEFAULT_TIMEOUT_MS
     );
 
-    iframe.addEventListener('load', () =>
-    {
+    iframe.addEventListener('load', () => {
       this.debug('iframe load');
-      if (this.themeVars)
-      {
+      if (this.themeVars) {
         this.messenger!.post({ type: 'configure', themeVars: this.themeVars! });
       }
     });
@@ -223,40 +208,38 @@ export class CheckoutComponent implements CheckoutPort
     this.debug('mount: complete', { sessionId: this.sessionId });
   }
 
-    public enableAutoIntercept(formOrSelector?: string | HTMLFormElement) {
-        this.disableIntercept();
-        const hostingForm = resolveForm(this.containerEl, formOrSelector);
-        if (!hostingForm) throw new Error('[Checkout] intercept: form not found');
-        this.submitController = setupSubmissionController(hostingForm, this, this.logger.child('SubmitInterceptor'));
-        this.submitController.attach();
-        this.debug('auto-intercept enabled');
+  public enableAutoIntercept(formOrSelector?: string | HTMLFormElement) {
+    this.disableIntercept();
+    const hostingForm = resolveForm(this.containerEl, formOrSelector);
+    if (!hostingForm) throw new Error('[Checkout] intercept: form not found');
+    this.submitController = setupSubmissionController(hostingForm, this, this.logger.child('SubmitInterceptor'));
+    this.submitController.attach();
+    this.debug('auto-intercept enabled');
+  }
+
+  public disableIntercept() {
+    try { this.submitController?.unbind(); } catch { }
+    this.submitController = undefined;
+    this.debug('auto-intercept disabled');
+  }
+
+  public async triggerSubmission() {
+    if (!this.submitController) {
+      const hostingForm = resolveForm(this.containerEl, undefined);
+      if (!hostingForm) throw new Error('[Checkout] triggerSubmission: hosting form not found');
+      this.submitController = setupSubmissionController(hostingForm, this, this.logger.child('SubmitInterceptor'));
     }
+    this.debug('manual triggerSubmission');
+    return this.submitController.trigger();
+  }
 
-    public disableIntercept() {
-        try { this.submitController?.unbind(); } catch { }
-        this.submitController = undefined;
-        this.debug('auto-intercept disabled');
-    }
-
-    public async triggerSubmission() {
-        if (!this.submitController) {
-            const hostingForm = resolveForm(this.containerEl, undefined);
-            if (!hostingForm) throw new Error('[Checkout] triggerSubmission: hosting form not found');
-            this.submitController = setupSubmissionController(hostingForm, this, this.logger.child('SubmitInterceptor'));
-        }
-        this.debug('manual triggerSubmission');
-        return this.submitController.trigger();
-    }
-
-    public cancelSubmission() {
-        this.submitController?.cancel?.();
-}
+  public cancelSubmission() {
+    this.submitController?.cancel?.();
+  }
 
 
-  public destroy()
-  {
-    if (this.boundHandleMessage)
-    {
+  public destroy() {
+    if (this.boundHandleMessage) {
       window.removeEventListener('message', this.boundHandleMessage);
       this.boundHandleMessage = undefined;
     }
@@ -269,11 +252,9 @@ export class CheckoutComponent implements CheckoutPort
   }
 
   // ---------- Iframe RPC ----------
-  public async requestExpiry(): Promise<string>
-  {
+  public async requestExpiry(): Promise<string> {
     this.ensureIframeReady();
-    if (!this.messenger)
-    {
+    if (!this.messenger) {
       throw new Error('Iframe messenger not ready');
     }
 
@@ -284,109 +265,98 @@ export class CheckoutComponent implements CheckoutPort
       (message: FrameToParentMessage) => message.type === 'expiry',
       (message: FrameToParentMessage) => (message as Extract<FrameToParentMessage, { type: 'expiry' }>).expiry,
       'Expiry retrieval timed out'
-      );
+    );
 
     this.cardExpiry = cardExpiry;
 
     return cardExpiry;
   }
 
-  public async requestToken(): Promise<string>
-  {
+  public async requestToken(): Promise<string> {
     this.ensureIframeReady();
-    if (!this.messenger)
-    {
+    if (!this.messenger) {
       throw new Error('Iframe messenger not ready');
     }
 
     this.debug('requestToken: start');
     this.messenger.post({ type: 'tokenise' });
 
-      const cardTokenId = await this.messenger.waitFor(
-          (message: FrameToParentMessage) => message.type === 'tokenised',
-          (message: FrameToParentMessage) =>
-              (message as Extract<FrameToParentMessage, { type: 'tokenised' }>).cardToken,
-          'Tokenisation timed out'
-      );
+    const cardTokenId = await this.messenger.waitFor(
+      (message: FrameToParentMessage) => message.type === 'tokenised',
+      (message: FrameToParentMessage) =>
+        (message as Extract<FrameToParentMessage, { type: 'tokenised' }>).cardToken,
+      'Tokenisation timed out'
+    );
 
-      this.cardTokenId = cardTokenId;
+    this.cardTokenId = cardTokenId;
 
-      if (this.sessionId) {
-          latestTokenInfo = {
-              sessionId: this.sessionId,
-              cardTokenId,
-          };
-      }
+    if (this.sessionId) {
+      latestTokenInfo = {
+        sessionId: this.sessionId,
+        cardTokenId,
+      };
+    }
 
-      this.debug('requestToken: stored token', {
-          sessionId: this.sessionId,
-          cardTokenId,
-      });
+    this.debug('requestToken: stored token', {
+      sessionId: this.sessionId,
+      cardTokenId,
+    });
 
-      return cardTokenId;
+    return cardTokenId;
   }
 
   // ---------- Internal helpers ----------
-  private ensurePublicKey(key: PublicKey): PublicKey
-  {
-    if (!key)
-    {
+  private ensurePublicKey(key: PublicKey): PublicKey {
+    if (!key) {
       throw new Error('Missing public key');
     }
     return key;
   }
 
-  private ensureIframeReady(): void
-  {
-    if (!this.iframe?.contentWindow)
-    {
+  private ensureIframeReady(): void {
+    if (!this.iframe?.contentWindow) {
       throw new Error('Iframe not ready');
     }
   }
 
-  private handleMessage(event: MessageEvent)
-  {
-    if (event.origin !== this.targetOrigin)
-    {
+  private handleMessage(event: MessageEvent) {
+    if (event.origin !== this.targetOrigin) {
       return;
     }
 
     const data = (event.data || {}) as FrameToParentMessage;
 
-    switch (data.type)
-    {
+    switch (data.type) {
       case 'ready':
-      {
-        this.debug('iframe ready');
-        if (this.themeVars)
         {
-          this.messenger?.post({ type: 'configure', themeVars: this.themeVars! });
+          this.debug('iframe ready');
+          if (this.themeVars) {
+            this.messenger?.post({ type: 'configure', themeVars: this.themeVars! });
+          }
+
+          this.messenger?.post({
+            type: 'configureLogger',
+            enabled: Boolean(this.options.debug),
+            level: (this.options.level ?? 'debug') as LogLevel,
+            namespaceBase: 'Checkout-Iframe',
+            sessionId: this.sessionId,
+          });
+
+          return;
         }
-
-        this.messenger?.post({
-          type: 'configureLogger',
-          enabled: Boolean(this.options.debug),
-          level: (this.options.level ?? 'debug') as LogLevel,
-          namespaceBase: 'Checkout-Iframe',
-          sessionId: this.sessionId,
-        });
-
-        return;
-      }
       case 'error':
-      {
-        const code = data.code ?? 'IFRAME_ERROR';
-        const message = data.message ?? 'Unknown error';
-        this.debug('iframe error', { code, message });
-        return;
-      }
+        {
+          const code = data.code ?? 'IFRAME_ERROR';
+          const message = data.message ?? 'Unknown error';
+          this.debug('iframe error', { code, message });
+          return;
+        }
       default:
         return;
     }
   }
 
-  private debug(message: string, data?: unknown)
-  {
+  private debug(message: string, data?: unknown) {
     this.logger.debug(message, data ?? '');
   }
 }
