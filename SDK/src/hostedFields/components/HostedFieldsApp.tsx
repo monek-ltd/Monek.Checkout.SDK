@@ -9,17 +9,24 @@ import type { ConfigureLoggerMessage } from '../../sdk/core/iframe/messages';
 
 const TOKENISE_TIMEOUT_MS = 20_000;
 
-function getParams() {
-    return new URLSearchParams(window.location.search);
+function getRequiredParam(paramName: string): string {
+    const params = new URLSearchParams(window.location.search);
+    const paramValue = params.get(paramName);
+
+    if (!paramValue?.trim()) {
+        throw new Error(`${paramName} is unset`);
+    }
+
+    return paramValue;
 }
 function getParentOriginParam() {
-    return getParams().get('parentOrigin') || '*';
+    return getRequiredParam('parentOrigin');
 }
 function getSessionId() {
-    return getParams().get('sessionId') || '';
+    return getRequiredParam('sessionId');
 }
 function getPublicKey() {
-    return getParams().get('publicKey') || '';
+    return getRequiredParam('publicKey');
 }
 
 /* Logger */

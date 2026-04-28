@@ -5,12 +5,15 @@ import type { ConfigureLoggerMessage } from "../../sdk/core/iframe/messages";
 
 /* Query / constants / types */
 
-function getParams() {
-    return new URLSearchParams(window.location.search);
-}
-
 function getParentOriginParam() {
-    return getParams().get("parentOrigin") || "*";
+    const params = new URLSearchParams(window.location.search);
+    const parentOrigin = params.get("parentOrigin");
+
+    if (!parentOrigin?.trim()) {
+        throw new Error("parentOrigin is unset");
+    }
+
+    return parentOrigin;
 }
 
 /* Logger ref */
