@@ -83,7 +83,6 @@ export async function runThreeDSFlow(
       component.getCallbacks(),
       expiry,
       component.getChallengeOptions().size ?? 'medium',
-      await component.getSourceIp(),
       component.getChallengeOptions().force ?? false,
       component.getParentOrigin()
     );

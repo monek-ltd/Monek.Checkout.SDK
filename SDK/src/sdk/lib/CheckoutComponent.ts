@@ -9,7 +9,6 @@ import { setupSubmissionController } from '../core/form/submissionController';
 import { validateCallbacks } from '../core/init/validateOptions';
 import { normaliseStyling, toCssVars, type StylingOptions } from '../types/styling';
 import { createSession } from '../core/init/createSession';
-import { getClientIpViaIpify } from '../core/utils/getClientIp';
 import { normaliseCountryFull } from '../core/utils/normaliseCountry';
 
 import { FrameMessenger } from '../core/iframe/FrameMessenger';
@@ -92,8 +91,6 @@ export class CheckoutComponent implements CheckoutPort {
   private boundHandleMessage?: (event: MessageEvent) => void;
   private sessionId?: string;
 
-  private sourceIp: Promise<string | undefined>;
-
   private readonly logger: Logger;
 
   constructor(publicKey: PublicKey, options: CheckoutInitOptions) {
@@ -113,7 +110,6 @@ export class CheckoutComponent implements CheckoutPort {
     }
 
     this.themeVars = toCssVars(normaliseStyling(this.options.styling as StylingOptions));
-    this.sourceIp = getClientIpViaIpify();
 
     this.logger = makeLogger('CheckoutComponent', Boolean(this.options.debug), (this.options.logLevel ?? "debug") as LogLevel);
     this.debug('CheckoutComponent: constructed', { frameUrl: this.frameUrl, targetOrigin: this.targetOrigin });
@@ -145,7 +141,6 @@ export class CheckoutComponent implements CheckoutPort {
   }
   public getPublicKey(): string { return this.publicKey; }
   public getValidityId(): string | undefined { return this.options.validityId as string | undefined; }
-  public getSourceIp(): Promise<string | undefined> { return this.sourceIp; }
   public getParentOrigin(): string { return this.parentOrigin; }
   public getCardTokenId(): string | undefined {
     return this.cardTokenId;

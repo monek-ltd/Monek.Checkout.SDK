@@ -33,6 +33,5 @@ export interface CheckoutPort {
   getPaymentReference(): string;
 
   // --- Environment info ---
-  getSourceIp(): Promise<string | undefined>;
   getParentOrigin(): string;
 }

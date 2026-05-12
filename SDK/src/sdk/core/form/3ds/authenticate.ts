@@ -9,7 +9,7 @@ import type { ChallengeSize } from '../../../types/challenge-window'
 
 export async function authenticate(
     apiKey: string, cardTokenId: string, sessionId: string, callbacks: InitCallbacks,
-    expiry: string, size: ChallengeSize, ip: string | undefined, forceChallenge: boolean,
+    expiry: string, size: ChallengeSize, forceChallenge: boolean,
     parentOrigin: string
 ): Promise<ThreeDSAuthenticationPayload> {
 
@@ -20,7 +20,7 @@ export async function authenticate(
             'x-api-key': apiKey,
         },
         body: JSON.stringify(await buildAuthenticationRequest(
-            cardTokenId, sessionId, callbacks, expiry, size, ip ?? '', forceChallenge, parentOrigin
+            cardTokenId, sessionId, callbacks, expiry, size, forceChallenge, parentOrigin
         )),
     });
     if (!res.ok) {
@@ -45,7 +45,7 @@ export async function authenticate(
 
 async function buildAuthenticationRequest(
     cardTokenId: string, sessionId: string, callbacks: InitCallbacks, expiry: string,
-    size: ChallengeSize, ip: string, forceChallenge: boolean, parentOrigin: string
+    size: ChallengeSize, forceChallenge: boolean, parentOrigin: string
 ) {
 
     const amount =
@@ -80,7 +80,7 @@ async function buildAuthenticationRequest(
     const expiryMonth = expiry.split('/')[0];
     const expiryYear = expiry.split('/')[1];
 
-    const browserData = await collectBrowserInformation(ip);
+    const browserData = await collectBrowserInformation();
     const normalisedPhoneNumber = normalisePhoneNumber(cardholderInformation.phone);
     const cardholderInformationWithNormalisedPhone = normalisedPhoneNumber
         ? { ...cardholderInformation, phone: normalisedPhoneNumber }

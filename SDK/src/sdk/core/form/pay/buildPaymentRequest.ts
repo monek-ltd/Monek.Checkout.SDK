@@ -44,7 +44,6 @@ export async function buildPaymentRequest(
     const expiryYear = expiry.split('/')[1];
 
     const billing = cardholderInformation.billingAddress;
-    const sourceIpAddress = await component.getSourceIp();
 
     const currentUrl =
     typeof window !== 'undefined' && window?.location?.href
@@ -92,7 +91,6 @@ export async function buildPaymentRequest(
         idempotencyToken: safeUuid(),
 
         source: userAgent,
-        ...(sourceIpAddress ? { sourceIpAddress } : {}),
         ...(currentUrl ? { url: currentUrl } : {}),
 
         basketDescription: description,
