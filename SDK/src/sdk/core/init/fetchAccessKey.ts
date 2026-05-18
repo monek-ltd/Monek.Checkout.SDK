@@ -1,16 +1,21 @@
 import { API } from '../../config';
+import { validatePublicKey } from '../utils/validatePublicKey';
 
 export interface AccessKeyDetails {
   accessKey: string;
-  createdAt: string; 
-  lastAccessedAt: string; 
-  status: 'ACTIVE' | 'INACTIVE' | string; 
+  createdAt: string;
+  lastAccessedAt: string;
+  status: 'ACTIVE' | 'INACTIVE' | string;
   displayName: string;
   applePayEnabled: boolean;
   buid: string;
 }
 
 export async function fetchAccessKeyDetails(publicKey: string): Promise<AccessKeyDetails> {
+  if (!validatePublicKey(publicKey)) {
+    throw new Error(`Invalid public key: ${publicKey}`);
+  }
+
   const url = `${API.base}/key/${publicKey}`;
   const headers = { 'x-api-key': publicKey };
 
