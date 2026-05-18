@@ -9,7 +9,6 @@ export async function validateSession(payload: any, logger: Logger) {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                //'x-api-key': apiKey,
             },
             body: JSON.stringify(payload),
         });
