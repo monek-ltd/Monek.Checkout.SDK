@@ -240,7 +240,7 @@ async function performChallenge(
         return { status: 'timeout' as const };
       }
     },
-  } as ChallengeOptions);
+  } as ChallengeOptions, logger);
 
   const result = await done;
   close();

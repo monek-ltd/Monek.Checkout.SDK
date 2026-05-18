@@ -38,8 +38,7 @@ export async function applePayEventHandler(
   options: ApplePayHandlerOptions,
   sessionId: string,
   logger: Logger
-): Promise<void>
-{
+): Promise<void> {
   logger.info("applePayEventHandler: start", {
     sessionId,
     hasForm: Boolean(options.form),
@@ -54,19 +53,16 @@ export async function applePayEventHandler(
   });
 
   const ApplePaySessionCtor = (window as any).ApplePaySession;
-  if (!ApplePaySessionCtor)
-  {
+  if (!ApplePaySessionCtor) {
     logger.warn("ApplePaySession is not available.");
     return;
   }
 
   let callbacks: InitCallbacks;
-  try
-  {
+  try {
     callbacks = getCallbacksOrThrow(options);
   }
-  catch (error)
-  {
+  catch (error) {
     logger.error("callbacks validation failed", { message: (error as Error)?.message });
     throw error;
   }
@@ -93,12 +89,11 @@ export async function applePayEventHandler(
   logger.info("Apple Pay session created", { version: APPLE_PAY_VERSION });
 
   const hostForm = resolveHostForm(options.form, logger);
-  const completionHelpers: CompletionHelpers = buildCompletionHelpers(hostForm);
+  const completionHelpers: CompletionHelpers = buildCompletionHelpers(hostForm, logger);
   const completionOptions = options.completion;
 
   logger.debug("wiring session handlers");
-  session.onvalidatemerchant = async (event: ApplePayJS.ApplePayValidateMerchantEvent) =>
-  {
+  session.onvalidatemerchant = async (event: ApplePayJS.ApplePayValidateMerchantEvent) => {
     const childLogger = logger.child("HandleValidateSession");
     childLogger.debug("onvalidatemerchant: start", { validationURL: event.validationURL });
 
@@ -113,8 +108,7 @@ export async function applePayEventHandler(
     childLogger.debug("onvalidatemerchant: end");
   };
 
-  session.onpaymentmethodselected = () =>
-  {
+  session.onpaymentmethodselected = () => {
     logger.debug("onpaymentmethodselected");
     session.completePaymentMethodSelection({
       newTotal: {
@@ -125,8 +119,7 @@ export async function applePayEventHandler(
     });
   };
 
-  session.onshippingmethodselected = () =>
-  {
+  session.onshippingmethodselected = () => {
     logger.debug("onshippingmethodselected");
     session.completeShippingMethodSelection({
       newTotal: {
@@ -137,8 +130,7 @@ export async function applePayEventHandler(
     });
   };
 
-  session.onshippingcontactselected = () =>
-  {
+  session.onshippingcontactselected = () => {
     logger.debug("onshippingcontactselected");
     session.completeShippingContactSelection({
       newTotal: {
@@ -149,8 +141,7 @@ export async function applePayEventHandler(
     });
   };
 
-  session.onpaymentauthorized = async (event: ApplePayJS.ApplePayPaymentAuthorizedEvent) =>
-  {
+  session.onpaymentauthorized = async (event: ApplePayJS.ApplePayPaymentAuthorizedEvent) => {
     const childLogger = logger.child("HandlePaymentAuthorised");
     childLogger.debug("onpaymentauthorized: start", {
       hasToken: Boolean(event?.payment?.token),
@@ -174,8 +165,7 @@ export async function applePayEventHandler(
     childLogger.debug("onpaymentauthorized: end");
   };
 
-  session.oncancel = async () =>
-  {
+  session.oncancel = async () => {
     logger.info("session cancelled by user");
     await invokeCompletion("onCancel", completionOptions, { sessionId, cardTokenId: "applepay" }, completionHelpers, logger.child("Completion"));
   };
@@ -185,17 +175,14 @@ export async function applePayEventHandler(
   logger.info("applePayEventHandler: ready");
 }
 
-function resolveHostForm(formFromOptions: HTMLFormElement | undefined, logger: Logger): HTMLFormElement
-{
-  if (formFromOptions)
-  {
+function resolveHostForm(formFromOptions: HTMLFormElement | undefined, logger: Logger): HTMLFormElement {
+  if (formFromOptions) {
     logger.debug("resolveHostForm: using provided form");
     return formFromOptions;
   }
 
   const existingForm = document.querySelector("form");
-  if (existingForm)
-  {
+  if (existingForm) {
     logger.debug("resolveHostForm: using first form in document");
     return existingForm as HTMLFormElement;
   }
@@ -206,12 +193,10 @@ function resolveHostForm(formFromOptions: HTMLFormElement | undefined, logger: L
   return createdForm;
 }
 
-function getCallbacksOrThrow(options: Record<string, unknown>): InitCallbacks
-{
+function getCallbacksOrThrow(options: Record<string, unknown>): InitCallbacks {
   validateCallbacks(options);
   const callbacks = options.callbacks as InitCallbacks | undefined;
-  if (!callbacks)
-  {
+  if (!callbacks) {
     throw new Error("Callbacks not set. Provide them during instantiation.");
   }
   return callbacks;

@@ -34,7 +34,7 @@ export async function performThreeDSMethodInvocation(
       url: methodUrl,
       method: 'POST',
       parameters: { threeDSMethodData: methodData }
-    }, form);
+    }, form, logger);
 
     const cleanup = () => {
       try { document.body.removeChild(iframe); } catch { /* ignore */ }

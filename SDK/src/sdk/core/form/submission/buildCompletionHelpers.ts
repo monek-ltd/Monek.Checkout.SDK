@@ -1,22 +1,22 @@
 import type { CompletionHelpers, Redirect } from "../../../types/completion";
+import type { Logger } from "../../utils/Logger";
 import { performRedirect, attachHidden } from '../helpers/performRedirect';
 
-export function buildCompletionHelpers(form: HTMLFormElement): CompletionHelpers
-{
+export function buildCompletionHelpers(
+  form: HTMLFormElement,
+  logger: Logger
+): CompletionHelpers {
   const submitControls = form.querySelectorAll<HTMLButtonElement | HTMLInputElement>('button, input[type=button], input[type=submit]');
 
   return {
-    redirect: (input: Redirect | string) =>
-    {
-        const r: Redirect = (typeof input === 'string' ? { url: input } : input) as Redirect;
+    redirect: (input: Redirect | string) => {
+      const r: Redirect = (typeof input === 'string' ? { url: input } : input) as Redirect;
 
-        if (!r.method) r.method = 'GET'
-        performRedirect(r, form);
+      if (!r.method) r.method = 'GET'
+      performRedirect(r, form, logger);
     },
-    submitForm: (fields?: Record<string, string>) =>
-    {
-      if (fields)
-      {
+    submitForm: (fields?: Record<string, string>) => {
+      if (fields) {
         Object.entries(fields).forEach(([key, value]) => attachHidden(form, key, value));
       }
       form.submit();

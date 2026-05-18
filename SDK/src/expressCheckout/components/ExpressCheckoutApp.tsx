@@ -74,9 +74,9 @@ const ExpressCheckoutApp: React.FC = () => {
         setApplePayBrowserAvailable(available);
 
         if (available) {
-            console.log("Apple Pay is available in this browser");
+            iframeLogger.debug("Apple Pay is available in this browser");
         } else {
-            console.warn("Apple Pay is NOT available in this browser");
+            iframeLogger.warn("Apple Pay is NOT available in this browser");
         }
     }, []);
 

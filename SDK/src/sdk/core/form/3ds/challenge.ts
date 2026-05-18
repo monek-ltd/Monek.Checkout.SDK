@@ -1,10 +1,11 @@
 import { API } from '../../../config';
 import type { ChallengeOptions, ChallengeSize, ChallengeResult } from '../../../types/challenge-window';
+import type { Logger } from '../../utils/Logger';
 import { performRedirect } from '../helpers/performRedirect';
 
 const DEFAULT_HARD_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
-export function openChallengeWindow(options: ChallengeOptions) {
+export function openChallengeWindow(options: ChallengeOptions, logger: Logger) {
   const {
     acsUrl,
     creq,
@@ -70,7 +71,7 @@ export function openChallengeWindow(options: ChallengeOptions) {
     url: acsUrl,
     method: 'POST',
     parameters: { creq }
-  }, form);
+  }, form, logger);
 
   // ---- Completion orchestration ----
   let isSettled = false;

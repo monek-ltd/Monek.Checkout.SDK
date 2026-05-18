@@ -4,6 +4,7 @@ import type { CheckoutPort } from '../../../types/checkout-port';
 import type { PaymentResponse } from './payment-payloads';
 import { buildPaymentRequest } from './buildPaymentRequest';
 import { mapPaymentResponse } from './mapPaymentResponse';
+import type { Logger } from '../../utils/Logger';
 
 export type PayDeps = {
   fetchImpl?: typeof fetch;
@@ -15,20 +16,18 @@ export async function pay(
   sessionId: string,
   expiry: string,
   component: CheckoutPort,
-  deps: PayDeps = {}
-): Promise<PaymentResponse>
-{
+  deps: PayDeps = {},
+  logger: Logger
+): Promise<PaymentResponse> {
   const fetchImpl = deps.fetchImpl ?? fetch;
   const debugEnabled = Boolean(deps.debugEnabled);
 
-  const debug = (message: string, data?: unknown) =>
-  {
-    if (!debugEnabled)
-    {
+  const debug = (message: string, data?: unknown) => {
+    if (!debugEnabled) {
       return;
     }
     // eslint-disable-next-line no-console
-    console.log('[Pay]', message, data ?? '');
+    logger.debug(`[Pay] ${message}`, data ?? '');
   };
 
   debug('start', { sessionId });
@@ -37,8 +36,7 @@ export async function pay(
   debug('request built', requestBody);
 
   let response: Response;
-  try
-  {
+  try {
     response = await fetchImpl(`${API.base}/payment`, {
       method: 'POST',
       headers: {
@@ -48,25 +46,21 @@ export async function pay(
       body: JSON.stringify(requestBody),
     });
   }
-  catch (networkError)
-  {
+  catch (networkError) {
     debug('network error', { message: (networkError as Error)?.message });
     throw new Error('Payment request failed to send');
   }
 
-  if (!response.ok)
-  {
+  if (!response.ok) {
     debug('non-OK response', { status: response.status });
     throw new Error(`payment failed (${response.status})`);
   }
 
   let rawJson: any;
-  try
-  {
+  try {
     rawJson = await response.json();
   }
-  catch
-  {
+  catch {
     debug('invalid JSON response');
     throw new Error('Invalid payment response (not JSON)');
   }

@@ -4,24 +4,25 @@ import { normalisePayment } from '../pay/normalisePayment';
 import { pay } from '../pay/makePayment';
 import { runCompletionHook } from '../helpers/runCompletionHook';
 import { attachHidden } from '../helpers/performRedirect';
+import type { Logger } from '../../utils/Logger';
 
 type CompletionContext = {
-  sessionId: string;
-  cardTokenId: string;
-  expiry: string;
-  auth: any;
+    sessionId: string;
+    cardTokenId: string;
+    expiry: string;
+    auth: any;
 };
 
 export async function completeSubmission(
-  form: HTMLFormElement,
-  component: CheckoutPort,
-  completionOptions: CompletionOptions | undefined,
-  context: CompletionContext,
-  helpers: Parameters<typeof runCompletionHook>[2]
-): Promise<void>
-{
+    form: HTMLFormElement,
+    component: CheckoutPort,
+    completionOptions: CompletionOptions | undefined,
+    context: CompletionContext,
+    helpers: Parameters<typeof runCompletionHook>[2],
+    logger: Logger
+): Promise<void> {
     if (completionOptions?.mode === 'client') {
-        const paymentResult = await pay(context.cardTokenId, context.sessionId, context.expiry, component);
+        const paymentResult = await pay(context.cardTokenId, context.sessionId, context.expiry, component, undefined, logger);
         const normalisedPaymentResponse = normalisePayment(paymentResult);
 
         const hookContext = { sessionId: context.sessionId, cardTokenId: context.cardTokenId, auth: context.auth, payment: paymentResult };
