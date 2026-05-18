@@ -1,3 +1,4 @@
+import { API } from '../../../config';
 import type { ChallengeOptions, ChallengeSize, ChallengeResult } from '../../../types/challenge-window';
 import { performRedirect } from '../helpers/performRedirect';
 
@@ -129,6 +130,9 @@ export function openChallengeWindow(options: ChallengeOptions) {
   // Front-channel
   const onWindowMessage = (event: MessageEvent) => {
     if (event.source !== iframeElement.contentWindow) {
+      return;
+    }
+    if (event.origin !== new URL(API.base).origin) {
       return;
     }
     const data = event.data || {};
