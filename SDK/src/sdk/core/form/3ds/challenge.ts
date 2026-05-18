@@ -1,4 +1,5 @@
 import type { ChallengeOptions, ChallengeSize, ChallengeResult } from '../../../types/challenge-window';
+import { performRedirect } from '../helpers/performRedirect';
 
 const DEFAULT_HARD_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -61,22 +62,14 @@ export function openChallengeWindow(options: ChallengeOptions) {
 
   // ---- Write a same-origin document, then POST to ACS with CReq ----
   const innerDocument = iframeElement.contentWindow!.document;
-
   const form = innerDocument.createElement('form');
-  form.id = 'monek-3ds-form';
-  form.method = 'POST';
-  form.action = acsUrl;
   innerDocument.body.appendChild(form);
 
-  const hiddenInput = innerDocument.createElement('input');
-  hiddenInput.type = 'hidden';
-  hiddenInput.name = 'creq';
-  hiddenInput.value = creq;
-  form.appendChild(hiddenInput);
-
-  const script = innerDocument.createElement('script');
-  script.textContent = 'document.getElementById(\'monek-3ds-form\').submit();';
-  innerDocument.body.appendChild(script);
+  performRedirect({
+    url: acsUrl,
+    method: 'POST',
+    parameters: { creq }
+  }, form);
 
   // ---- Completion orchestration ----
   let isSettled = false;

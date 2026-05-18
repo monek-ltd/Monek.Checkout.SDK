@@ -1,5 +1,6 @@
 import { WsClient } from '../../client/WebSocketClient';
 import { Logger } from '../../utils/Logger';
+import { performRedirect } from '../helpers/performRedirect';
 
 export async function performThreeDSMethodInvocation(
   methodUrl?: string | null,
@@ -26,22 +27,14 @@ export async function performThreeDSMethodInvocation(
     document.body.appendChild(iframe);
 
     const iframeDocument = iframe.contentWindow!.document;
-
     const form = iframeDocument.createElement('form');
-    form.id = 'threeDSMethodForm';
-    form.method = 'POST';
-    form.action = methodUrl;
     iframeDocument.body.appendChild(form);
 
-    const hiddenInput = iframeDocument.createElement('input');
-    hiddenInput.type = 'hidden';
-    hiddenInput.name = 'threeDSMethodData';
-    hiddenInput.value = methodData;
-    form.appendChild(hiddenInput);
-
-    const script = iframeDocument.createElement('script');
-    script.textContent = 'document.getElementById(\'threeDSMethodForm\').submit();';
-    iframeDocument.body.appendChild(script);
+    performRedirect({
+      url: methodUrl,
+      method: 'POST',
+      parameters: { threeDSMethodData: methodData }
+    }, form);
 
     const cleanup = () => {
       try { document.body.removeChild(iframe); } catch { /* ignore */ }
