@@ -14,6 +14,12 @@ export function performRedirect(redirect: Redirect, formElement: HTMLFormElement
   // Resolve relative against current page
   const resolvedUrl = new URL(rawUrl, window.location.href);
 
+  if (!(['https:', 'http:'].includes(resolvedUrl.protocol))) {
+    console.error('performRedirect: invalid url protocol', redirect);
+    // fail safe: stay put instead of performing possibly malicious action
+    return;
+  }
+
   if (method === 'GET') {
     Object.entries(params).forEach(([k, v]) => resolvedUrl.searchParams.set(k, String(v)));
     window.location.assign(resolvedUrl.toString());
