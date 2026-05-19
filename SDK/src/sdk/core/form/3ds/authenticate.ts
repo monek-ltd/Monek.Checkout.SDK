@@ -34,7 +34,6 @@ export async function authenticate(
         errorMessage: j.ErrorMessage ?? j.errorMessage,
         scheme: j.Scheme ?? j.scheme,
         protocolVersion: j.ProtocolVersion ?? j.protocolVersion,
-        serverTransactionId: j.ServerTransactionID ?? j.serverTransactionID, //TODO REMOVE
         challenge: {
             cReq: j.Challenge?.CReq ?? j.challenge?.cReq,
             acsUrl: j.Challenge?.AcsUrl ?? j.challenge?.acsUrl,
