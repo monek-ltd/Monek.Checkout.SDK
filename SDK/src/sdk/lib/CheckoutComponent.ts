@@ -332,7 +332,7 @@ export class CheckoutComponent implements CheckoutPort {
           this.messenger?.post({
             type: 'configureLogger',
             enabled: Boolean(this.options.debug),
-            level: (this.options.level ?? 'debug') as LogLevel,
+            level: (this.options.logLevel ?? 'debug') as LogLevel,
             namespaceBase: 'Checkout-Iframe',
             sessionId: this.sessionId,
           });

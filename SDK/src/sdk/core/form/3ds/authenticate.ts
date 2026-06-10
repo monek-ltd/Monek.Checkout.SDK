@@ -100,6 +100,6 @@ async function buildAuthenticationRequest(
         cardExpiryYear: expiryYear,
         challengeWindowSize: getWindowSize(size),
         challengePreference: forceChallenge ? "mandated" : null,
-        notificationUrl: `${API.base}/notification?parentOrigin=${parentOrigin}`,
+        notificationUrl: `${API.base}/notification?parentOrigin=${encodeURIComponent(parentOrigin)}`,
     };
 }
