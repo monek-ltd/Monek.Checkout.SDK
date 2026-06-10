@@ -13,7 +13,7 @@ export interface AccessKeyDetails {
 
 export async function fetchAccessKeyDetails(publicKey: string): Promise<AccessKeyDetails> {
   if (!validatePublicKey(publicKey)) {
-    throw new Error(`Invalid public key: ${publicKey}`);
+    throw new Error('Invalid public key');
   }
 
   const url = `${API.base}/key/${publicKey}`;
