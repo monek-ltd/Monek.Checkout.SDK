@@ -1,25 +1,23 @@
 import { WsClient } from '../../client/WebSocketClient';
 import { Logger } from '../../utils/Logger';
+import { performRedirect } from '../helpers/performRedirect';
 
 export async function performThreeDSMethodInvocation(
   methodUrl?: string | null,
   methodData?: string | null,
   timeoutMs = 10000,
   webSocketClient?: WsClient,
-  sessionId?: string,     
+  sessionId?: string,
   logger?: Logger
-): Promise<'skipped' | 'performed' | 'timeout'>
-{
-  if (!methodUrl || !methodData)
-  {
+): Promise<'skipped' | 'performed' | 'timeout'> {
+  if (!methodUrl || !methodData) {
     logger?.debug('3DS method: skipped (no methodUrl/methodData)');
     return 'skipped';
   }
 
   logger?.info('3DS method: starting', { methodUrl, timeoutMs });
 
-  return new Promise(async (resolve) =>
-  {
+  return new Promise(async (resolve) => {
     const iframe = document.createElement('iframe');
     iframe.style.width = '0';
     iframe.style.height = '0';
@@ -29,42 +27,36 @@ export async function performThreeDSMethodInvocation(
     document.body.appendChild(iframe);
 
     const iframeDocument = iframe.contentWindow!.document;
-    iframeDocument.open();
-    iframeDocument.write(`
-      <form id="threeDSMethodForm" action="${methodUrl}" method="POST">
-        <input type="hidden" name="threeDSMethodData" value="${methodData}">
-      </form>
-      <script>document.getElementById('threeDSMethodForm').submit();</script>
-    `);
-    iframeDocument.close();
+    const form = iframeDocument.createElement('form');
+    iframeDocument.body.appendChild(form);
 
-    const cleanup = () =>
-    {
+    performRedirect({
+      url: methodUrl,
+      method: 'POST',
+      parameters: { threeDSMethodData: methodData }
+    }, form, logger);
+
+    const cleanup = () => {
       try { document.body.removeChild(iframe); } catch { /* ignore */ }
     };
 
-    const timeoutId = window.setTimeout(() =>
-    {
+    const timeoutId = window.setTimeout(() => {
       logger?.warn('3DS method: timeout');
       cleanup();
       resolve('timeout');
     }, timeoutMs);
 
-    if (webSocketClient)
-    {
-      try
-      {
+    if (webSocketClient) {
+      try {
         const event = await webSocketClient.waitFor<any>(
           '3ds.method.result',
-          (received: any) =>
-          {
+          (received: any) => {
             const matches =
               received &&
               typeof received === 'object' &&
               received.type === '3ds.method.result';
 
-            if (matches)
-            {
+            if (matches) {
               logger?.debug('3DS method: WS match', {
                 sessionId,
                 methodCompletion: received.methodCompletion ?? 'unknown'
@@ -82,14 +74,12 @@ export async function performThreeDSMethodInvocation(
         resolve('performed');
         return;
       }
-      catch (error)
-      {
+      catch (error) {
         logger?.warn('3DS method: WS wait failed; falling back to heuristic', { message: (error as Error)?.message });
       }
     }
 
-    window.setTimeout(() =>
-    {
+    window.setTimeout(() => {
       window.clearTimeout(timeoutId);
       cleanup();
       logger?.info('3DS method: heuristic performed');

@@ -3,8 +3,7 @@ import type { InitCallbacks } from './callbacks';
 import type { ChallengeOptions } from './challenge-window';
 import type { SettlementType, CardEntry, Intent, Order } from './transaction-details';
 
-export interface CheckoutPort
-{
+export interface CheckoutPort {
   // --- Completion / callbacks ---
   getCompletionOptions(): CompletionOptions | undefined;
   getCallbacks(): InitCallbacks;
@@ -34,5 +33,5 @@ export interface CheckoutPort
   getPaymentReference(): string;
 
   // --- Environment info ---
-  getSourceIp(): Promise<string | undefined>;
+  getParentOrigin(): string;
 }

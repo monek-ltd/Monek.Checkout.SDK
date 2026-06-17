@@ -40,7 +40,7 @@ export function setupSubmissionController(
         const timerOverall = submitLogger.time('overall');
 
         const completionOptions = component.getCompletionOptions();
-        helpers = buildCompletionHelpers(form);
+        helpers = buildCompletionHelpers(form, submitLogger);
         helpers.disable();
         debug('helpers disabled');
 
@@ -108,7 +108,8 @@ export function setupSubmissionController(
                 component,
                 completionOptions,
                 { sessionId, cardTokenId, expiry, auth: authContext.authenticationResult },
-                helpers
+                helpers,
+                submitLogger
             );
             timerComplete.end();
             debug('completion finished');

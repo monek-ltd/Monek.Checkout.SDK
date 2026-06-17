@@ -5,12 +5,15 @@ import type { ConfigureLoggerMessage } from "../../sdk/core/iframe/messages";
 
 /* Query / constants / types */
 
-function getParams() {
-    return new URLSearchParams(window.location.search);
-}
-
 function getParentOriginParam() {
-    return getParams().get("parentOrigin") || "*";
+    const params = new URLSearchParams(window.location.search);
+    const parentOrigin = params.get("parentOrigin");
+
+    if (!parentOrigin?.trim()) {
+        throw new Error("parentOrigin is unset");
+    }
+
+    return parentOrigin;
 }
 
 /* Logger ref */
@@ -71,9 +74,9 @@ const ExpressCheckoutApp: React.FC = () => {
         setApplePayBrowserAvailable(available);
 
         if (available) {
-            console.log("Apple Pay is available in this browser");
+            iframeLogger.debug("Apple Pay is available in this browser");
         } else {
-            console.warn("Apple Pay is NOT available in this browser");
+            iframeLogger.warn("Apple Pay is NOT available in this browser");
         }
     }, []);
 

@@ -1,29 +1,29 @@
 import { API } from '../../../config';
+import type { Logger } from '../../utils/Logger';
 
-export async function validateSession(payload: any) {
+export async function validateSession(payload: any, logger: Logger) {
     const url = `${API.appleSession}`;
-   
+
     try {
         const response = await fetch(url, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                //'x-api-key': apiKey,
             },
             body: JSON.stringify(payload),
         });
 
         const text = await response.text();
         let parsed: any = null;
-        try { parsed = text ? JSON.parse(text) : null; } catch {}
+        try { parsed = text ? JSON.parse(text) : null; } catch { }
 
         return {
             status: response.status.toString(),
-            session: parsed,          
-            raw: text                   
+            session: parsed,
+            raw: text
         };
 
     } catch (error) {
-        console.error("Error during validating merchant: ", error);
+        logger.error("Error during validating merchant: ", error);
     }
 }

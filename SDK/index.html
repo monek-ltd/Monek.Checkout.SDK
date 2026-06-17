@@ -17,11 +17,21 @@
 
         <strong>How this demo works</strong>
         <ul class="intro__list">
-            <li>Two public keys (<span class="tip" tabindex="0" data-tip="Switch between TEST and LIVE keys to switch between a TEST/LIVE Merchant.">Test/Live</span>) let you try test cards or real payments.</li>
+            <li>Enter a public key (Test/Live) below to try test cards or real payments.</li>
             <li>Default charge is <code>£0.10</code> for quick testing (toggle to charge the real basket total).</li>
             <li>Pay via Apple Pay (if available) or fill the card form and press <em>Pay</em>.</li>
             <li>Client completion hooks drive redirects and error handling.</li>
         </ul>
+    </div>
+
+    <!-- Env + express -->
+    <div class="card toolbar">
+        <label class="tip" data-tip="Enter the key to use with the SDK. Warning! A LIVE key will process a real payment.">
+            SDK Key
+            <input type="text" id="txt-new-key" />
+        </label>
+        <button type="button" id="btn-key-activate" class="tip" data-tip="Activate the entered key. Warning! A LIVE key will process a real payment.">Activate</button>
+        <span id="active-key-label" class="active-key-label"></span>
     </div>
 
     <form id="test-form" action="/echo" method="POST">
@@ -66,15 +76,9 @@
 
         <hr />
 
-        <!-- Env + express -->
-        <div class="toolbar">
-            <button type="button" id="btn-key-a" class="tip" data-tip="Use TEST key for safe test cards.">TEST</button>
-            <button type="button" id="btn-key-b" class="tip" data-tip="Use LIVE key for real payments (Warning!).">LIVE</button>
-            <span id="active-key-label" class="active-key-label"></span>
-        </div>
-
         <div id="sdk-express-container" class="sdk-surface tip" tabindex="0"
              data-tip="Express surface (Apple Pay) mounts here. If hidden, check Apple Pay availability and that the key has Apple Pay enabled.">
+             Express surface (Apple Pay) mounts here. If hidden, check Apple Pay availability and that the key has Apple Pay enabled.
         </div>
 
         <div class="card applepay-context applepay-context--collapsed" aria-live="polite" id="applepay-card">
@@ -205,16 +209,8 @@
 
             const host = location.hostname.toLowerCase();
 
-            const KEYS = {
-                A: host === 'dev-checkout-js.monek.com' || host.startsWith('dev-')
-                    ? 'test_9290ecf10347472fae33addb0438bbde' // 0000894
-                    : 'test_73cd746315f242ce9785d2775fbd5164', // 0000015
-                B: host === 'dev-checkout-js.monek.com' || host.startsWith('dev-')
-                    ? 'live_312ede4ef0c840bea54e3a6a40773a23' // 0000894
-                    : 'live_105aae69a7b546aead763cd55d9cce13', // 0150185
-            };
             const params = new URLSearchParams(location.search);
-            let currentKey = (params.get('key') === 'B') ? 'B' : 'A';
+            const currentKey = params.get('key');
 
             const formEl = document.getElementById('test-form');
             const keyLabel = document.getElementById('active-key-label');
@@ -522,23 +518,29 @@
             }
 
             async function mountWithPreset(preset) {
-                setLoadingPlaceholders();
-                await destroyComponents();
-                checkout = sdk.createComponent('checkout', buildOptions(preset, false));
-                await checkout.mount('#sdk-container');
-                express = sdk.createComponent('express', buildOptions(preset, true));
-                await express.mount('#sdk-express-container');
-                updateApplePayPreview({ status: 'idle' });
+                if (sdk) {
+                    setLoadingPlaceholders();
+                    await destroyComponents();
+                    checkout = sdk.createComponent('checkout', buildOptions(preset, false));
+                    await checkout.mount('#sdk-container');
+                    express = sdk.createComponent('express', buildOptions(preset, true));
+                    await express.mount('#sdk-express-container');
+                    updateApplePayPreview({ status: 'idle' });
+                }
             }
 
-            async function initSdkForKey(keyCode) {
-                sdk = await window.Monek(KEYS[keyCode]);
-                keyLabel.textContent = `Active key: ${keyCode} (${KEYS[keyCode].slice(0, 8)}… )`;
+            async function initSdkForKey(key) {
+                const cleanKey = key?.trim();
+                sdk = cleanKey ? await window.Monek(cleanKey) : null;
+                const keyText = cleanKey ? `${cleanKey.slice(0, 8)}…` : 'NONE';
+                keyLabel.textContent = `Active key: ${keyText}`;
             }
 
-            const reloadWithKey = (keyCode) => {
+            const reloadWithNewKey = () => {
+                const newKey = document.getElementById('txt-new-key').value?.trim();
+
                 const url = new URL(window.location.href);
-                url.searchParams.set('key', keyCode);
+                url.searchParams.set('key', newKey);
                 window.location.assign(url.toString());
             };
 
@@ -556,8 +558,7 @@
                 mountWithPreset(STYLING_BRAND);
             });
 
-            document.getElementById('btn-key-a').addEventListener('click', () => reloadWithKey('A'));
-            document.getElementById('btn-key-b').addEventListener('click', () => reloadWithKey('B'));
+            document.getElementById('btn-key-activate').addEventListener('click', () => reloadWithNewKey());
 
             basketItemsEl.addEventListener('click', (e) => {
                 const target = e.target;

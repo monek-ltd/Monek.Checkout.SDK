@@ -1,8 +1,11 @@
+import { API } from '../../../config';
 import type { ChallengeOptions, ChallengeSize, ChallengeResult } from '../../../types/challenge-window';
+import type { Logger } from '../../utils/Logger';
+import { performRedirect } from '../helpers/performRedirect';
 
 const DEFAULT_HARD_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
-export function openChallengeWindow(options: ChallengeOptions) {
+export function openChallengeWindow(options: ChallengeOptions, logger: Logger) {
   const {
     acsUrl,
     creq,
@@ -61,17 +64,14 @@ export function openChallengeWindow(options: ChallengeOptions) {
 
   // ---- Write a same-origin document, then POST to ACS with CReq ----
   const innerDocument = iframeElement.contentWindow!.document;
-  innerDocument.open();
-  innerDocument.write(`
-    <!doctype html><meta charset="utf-8">
-    <body>
-      <form id="monek-3ds-form" action="${escapeHtml(acsUrl)}" method="POST">
-        <input type="hidden" name="creq" value="${escapeHtml(creq)}">
-      </form>
-      <script>document.getElementById('monek-3ds-form').submit();</script>
-    </body>
-  `);
-  innerDocument.close();
+  const form = innerDocument.createElement('form');
+  innerDocument.body.appendChild(form);
+
+  performRedirect({
+    url: acsUrl,
+    method: 'POST',
+    parameters: { creq }
+  }, form, logger);
 
   // ---- Completion orchestration ----
   let isSettled = false;
@@ -97,13 +97,13 @@ export function openChallengeWindow(options: ChallengeOptions) {
 
     try {
       window.removeEventListener('message', onWindowMessage);
-    } catch {}
+    } catch { }
     try {
       window.removeEventListener('keydown', onEscapeKey);
-    } catch {}
+    } catch { }
     try {
       overlayElement.remove();
-    } catch {}
+    } catch { }
 
     window.clearTimeout(hardTimeoutId);
   };
@@ -112,7 +112,7 @@ export function openChallengeWindow(options: ChallengeOptions) {
   const onEscapeKey = (event: KeyboardEvent) => {
     if (event.key === 'Escape') {
       if (typeof onCancel === 'function') {
-        try { onCancel(); } catch {}
+        try { onCancel(); } catch { }
       }
       complete({ kind: 'closed' });
     }
@@ -122,7 +122,7 @@ export function openChallengeWindow(options: ChallengeOptions) {
   const viaUserClosed = new Promise<ChallengeResult>((resolve) => {
     closeButton.addEventListener('click', () => {
       if (typeof onCancel === 'function') {
-        try { onCancel(); } catch {}
+        try { onCancel(); } catch { }
       }
       resolve({ kind: 'closed' });
     }, { once: true });
@@ -131,6 +131,9 @@ export function openChallengeWindow(options: ChallengeOptions) {
   // Front-channel
   const onWindowMessage = (event: MessageEvent) => {
     if (event.source !== iframeElement.contentWindow) {
+      return;
+    }
+    if (event.origin !== new URL(API.base).origin) {
       return;
     }
     const data = event.data || {};
@@ -143,13 +146,13 @@ export function openChallengeWindow(options: ChallengeOptions) {
   // Back-channel
   const viaBackChannel = waitForResult
     ? (async () => {
-        try {
-          const data = await waitForResult();
-          return { kind: 'polled', data } as const;
-        } catch {
-          return new Promise<never>(() => undefined) as never;
-        }
-      })()
+      try {
+        const data = await waitForResult();
+        return { kind: 'polled', data } as const;
+      } catch {
+        return new Promise<never>(() => undefined) as never;
+      }
+    })()
     : new Promise<never>(() => undefined);
 
   const hardTimeoutId = window.setTimeout(() => {
@@ -171,10 +174,10 @@ export function openChallengeWindow(options: ChallengeOptions) {
 export function getWindowSize(size: ChallengeSize): string {
   if (typeof size === 'string') {
     switch (size) {
-      case 'small':  return '250px';
-      case 'large':  return '600px';
+      case 'small': return '250px';
+      case 'large': return '600px';
       case 'medium':
-      default:       return '500px';
+      default: return '500px';
     }
   } else {
     return `${Math.max(size.width, size.height)}px`;
@@ -187,12 +190,4 @@ function sizeToCss(size: ChallengeSize): string {
     return `width:${pixelSize}; height:${pixelSize};`;
   }
   return `width:${size.width}px; height:${size.height}px;`;
-}
-
-function escapeHtml(value: string) {
-  return String(value)
-    .replace(/&/g,'&amp;')
-    .replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;');
 }

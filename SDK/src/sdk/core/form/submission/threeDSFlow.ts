@@ -31,21 +31,18 @@ export async function runThreeDSFlow(
   completionOptions: CompletionOptions | undefined,
   webSocketClient: WsClient | null,
   logger: Logger
-): Promise<AuthContext>
-{
+): Promise<AuthContext> {
   const flowLogger = logger.child('ThreeDSFlow');
   flowLogger.info('start', { sessionId, hasWebSocket: Boolean(webSocketClient) });
 
   // 1) Get method data
   const timerGetData = flowLogger.time('getThreeDSMethodData');
   let threeDSData: any;
-  try
-  {
+  try {
     threeDSData = await getThreeDSMethodData(component.getPublicKey(), cardTokenId, sessionId);
     timerGetData.end({ hasMethodUrl: Boolean(threeDSData?.threeDSRequest?.methodUrl) });
   }
-  catch (error)
-  {
+  catch (error) {
     timerGetData.end({ error: (error as Error)?.message ?? String(error) });
     flowLogger.error('getThreeDSMethodData failed', { message: (error as Error)?.message });
     throw error;
@@ -56,8 +53,7 @@ export async function runThreeDSFlow(
   const methodData = threeDSData.threeDSRequest?.methodData;
 
   const timerMethod = flowLogger.time('performThreeDSMethodInvocation');
-  try
-  {
+  try {
     await performThreeDSMethodInvocation(
       methodUrl,
       methodData,
@@ -68,8 +64,7 @@ export async function runThreeDSFlow(
     );
     timerMethod.end({ invoked: Boolean(methodUrl && methodData) });
   }
-  catch (error)
-  {
+  catch (error) {
     // This is best-effort; we log but do not throw to preserve behaviour.
     timerMethod.end({ error: (error as Error)?.message ?? String(error) });
     flowLogger.warn('performThreeDSMethodInvocation failed (continuing)', {
@@ -80,8 +75,7 @@ export async function runThreeDSFlow(
   // 3) Authenticate
   const timerAuth = flowLogger.time('authenticate');
   let authenticationResult: any;
-  try
-  {
+  try {
     authenticationResult = await authenticate(
       component.getPublicKey(),
       cardTokenId,
@@ -89,27 +83,24 @@ export async function runThreeDSFlow(
       component.getCallbacks(),
       expiry,
       component.getChallengeOptions().size ?? 'medium',
-      await component.getSourceIp(),
-      component.getChallengeOptions().force ?? false
+      component.getChallengeOptions().force ?? false,
+      component.getParentOrigin()
     );
     timerAuth.end({ result: authenticationResult?.result });
   }
-  catch (error)
-  {
+  catch (error) {
     timerAuth.end({ error: (error as Error)?.message ?? String(error) });
     flowLogger.error('authenticate failed', { message: (error as Error)?.message });
     throw error;
   }
 
-  if (authenticationResult?.errorMessage)
-  {
+  if (authenticationResult?.errorMessage) {
     flowLogger.error('authenticate returned errorMessage', { errorMessage: authenticationResult.errorMessage });
     throw new Error(`3DS authentication error: ${authenticationResult.errorMessage}`);
   }
 
   // --- Branches ---
-  if (authenticationResult?.result === 'challenge')
-  {
+  if (authenticationResult?.result === 'challenge') {
     flowLogger.info('challenge required', {
       display: component.getChallengeOptions().display ?? 'popup',
       size: component.getChallengeOptions().size ?? 'medium'
@@ -127,12 +118,10 @@ export async function runThreeDSFlow(
     );
     timerChallenge.end({ kind: challengeResult.kind });
 
-    if (challengeResult.kind === 'closed')
-    {
+    if (challengeResult.kind === 'closed') {
       flowLogger.info('challenge closed by user');
 
-      if (completionOptions?.onClosed || completionOptions?.onCancel)
-      {
+      if (completionOptions?.onClosed || completionOptions?.onCancel) {
         flowLogger.debug('invoking completion: onClosed/onCancel');
         await runCompletionHook(
           completionOptions.onClosed ?? completionOptions.onCancel,
@@ -144,25 +133,22 @@ export async function runThreeDSFlow(
           // no-op helpers here
           { redirect: () => undefined, submitForm: () => undefined, reenable: () => undefined, disable: () => undefined }
         );
-        
+
         authenticationResult.result = 'not-authenticated';
         const ctx: AuthContext = { sessionId, cardTokenId, expiry, authenticationResult };
         flowLogger.info('end', { outcome: 'closed' });
         return ctx;
 
       }
-      else
-      {
+      else {
         flowLogger.warn('no completion handler for challenge closed; throwing');
         throw new Error('Challenge closed by user');
       }
     }
-    else if (challengeResult.kind === 'timeout')
-    {
+    else if (challengeResult.kind === 'timeout') {
       flowLogger.warn('challenge timed out');
 
-      if (completionOptions?.onCancel)
-      {
+      if (completionOptions?.onCancel) {
         flowLogger.debug('invoking completion: onCancel (timeout)');
 
         await runCompletionHook(
@@ -170,34 +156,30 @@ export async function runThreeDSFlow(
           { sessionId, cardTokenId, auth: challengeResult, payment: null },
           { redirect: () => undefined, submitForm: () => undefined, reenable: () => undefined, disable: () => undefined }
         );
-        
+
         authenticationResult.result = 'not-authenticated';
         const ctx: AuthContext = { sessionId, cardTokenId, expiry, authenticationResult };
         flowLogger.info('end', { outcome: 'time-out' });
         return ctx;
       }
-      else
-      {
+      else {
         flowLogger.warn('no completion handler for timeout; throwing');
         throw new Error('Challenge timed out');
       }
     }
-    else
-    {
+    else {
       flowLogger.info('challenge polled result', { data: challengeResult.data });
 
       //Fall through to end
     }
   }
-  else if (authenticationResult?.result === 'not-authenticated')
-  {
+  else if (authenticationResult?.result === 'not-authenticated') {
     flowLogger.warn('not-authenticated from ACS');
     const ctx: AuthContext = { sessionId, cardTokenId, expiry, authenticationResult };
     flowLogger.info('end', { outcome: 'not-authenticated' });
     return ctx;
   }
-  else
-  {
+  else {
     flowLogger.info('no challenge required', { result: authenticationResult?.result });
   }
 
@@ -215,36 +197,30 @@ async function performChallenge(
   display: 'popup' | 'embedded' | string,
   size: ChallengeSize | string,
   logger: Logger
-): Promise<ChallengeResult>
-{
+): Promise<ChallengeResult> {
   const { done, close } = openChallengeWindow({
     acsUrl,
     creq,
     display,
     size,
-    waitForResult: async () =>
-    {
-      if (!webSocketClient)
-      {
+    waitForResult: async () => {
+      if (!webSocketClient) {
         logger.warn('3DS challenge: no WebSocket; using timeout fallback');
         await new Promise(resolve => setTimeout(resolve, TIMEOUT_CHALLENGE_MS));
         return { status: 'timeout' as const };
       }
 
-      try
-      {
+      try {
         const event = await webSocketClient.waitFor<any>(
           '3ds.challenge.result',
-          (received: any) =>
-          {
+          (received: any) => {
             const matches =
               received &&
               typeof received === 'object' &&
               received.type === '3ds.challenge.result' &&
               received.status === 'Y';
 
-            if (matches)
-            {
+            if (matches) {
               logger.info('3DS challenge: WS match', {
                 sessionId,
                 status: received.status ?? 'unknown',
@@ -259,25 +235,22 @@ async function performChallenge(
 
         return { status: event?.status ?? 'unknown', data: { resultSummary: event?.resultSummary } };
       }
-      catch (error)
-      {
+      catch (error) {
         logger.warn('3DS challenge: WS wait failed; treating as timeout', { message: (error as Error)?.message });
         return { status: 'timeout' as const };
       }
     },
-  } as ChallengeOptions);
+  } as ChallengeOptions, logger);
 
   const result = await done;
   close();
 
-  if (result.kind === 'closed')
-  {
+  if (result.kind === 'closed') {
     logger.info('3DS challenge: user closed challenge window');
     return { kind: 'closed' };
   }
 
-  if (result.kind === 'timeout')
-  {
+  if (result.kind === 'timeout') {
     logger.warn('3DS challenge: timed out');
     return { kind: 'timeout' };
   }

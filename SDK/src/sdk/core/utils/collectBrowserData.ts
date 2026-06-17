@@ -1,6 +1,5 @@
-export async function collectBrowserInformation(ip: string): Promise<{
+export async function collectBrowserInformation(): Promise<{
     acceptHeader: string;
-    ipAddress?: string;
     isJavascriptEnabled: boolean;
     isJavaEnabled: boolean;
     language: string;
@@ -14,7 +13,6 @@ export async function collectBrowserInformation(ip: string): Promise<{
     
     return {
       acceptHeader: '*/*',
-      ipAddress: ip,
       isJavascriptEnabled: true,
       isJavaEnabled: typeof navigator.javaEnabled === 'function' ? navigator.javaEnabled() : false,
       language: navigator.language || 'en',

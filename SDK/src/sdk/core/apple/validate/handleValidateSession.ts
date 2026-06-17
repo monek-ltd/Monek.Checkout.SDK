@@ -9,8 +9,7 @@ type ValidateSessionParams = {
   logger: Logger;
 };
 
-export async function handleValidateSession(params: ValidateSessionParams): Promise<void>
-{
+export async function handleValidateSession(params: ValidateSessionParams): Promise<void> {
   const { session, event, publicKey, displayName, logger } = params;
 
   const payload = {
@@ -23,17 +22,15 @@ export async function handleValidateSession(params: ValidateSessionParams): Prom
 
   logger.debug("Session validation payload", payload);
 
-  const merchantSession = await validateSession(payload);
+  const merchantSession = await validateSession(payload, logger);
 
-  if (merchantSession?.status === "200")
-  {
+  if (merchantSession?.status === "200") {
     logger.debug(`Validation status ${merchantSession?.status}`);
     const appleSession = (merchantSession as any).session ?? merchantSession;
     session.completeMerchantValidation(appleSession);
     logger.debug("Session validation complete");
   }
-  else
-  {
+  else {
     logger.error(`Session could not be validated : ${merchantSession?.status}`);
   }
 }

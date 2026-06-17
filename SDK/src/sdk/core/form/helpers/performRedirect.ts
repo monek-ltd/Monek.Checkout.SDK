@@ -1,18 +1,29 @@
 import type { Redirect } from '../../../types/completion';
+import type { Logger } from '../../utils/Logger';
 
-export function performRedirect(redirect: Redirect, formElement: HTMLFormElement | undefined) {
+export function performRedirect(
+  redirect: Redirect,
+  formElement: HTMLFormElement | undefined,
+  logger?: Logger
+) {
   const method = (redirect.method ?? 'GET').toUpperCase() as 'GET' | 'POST';
   const params = redirect.parameters ?? {};
   const rawUrl = redirect.url;
 
   if (!rawUrl || typeof rawUrl !== 'string') {
-    console.error('performRedirect: missing redirect.url', redirect);
+    logger?.error('performRedirect: missing redirect.url', redirect);
     // fail safe: stay put instead of going to /undefined
     return;
   }
 
   // Resolve relative against current page
   const resolvedUrl = new URL(rawUrl, window.location.href);
+
+  if (!(['https:', 'http:'].includes(resolvedUrl.protocol))) {
+    logger?.error('performRedirect: invalid url protocol', redirect);
+    // fail safe: stay put instead of performing possibly malicious action
+    return;
+  }
 
   if (method === 'GET') {
     Object.entries(params).forEach(([k, v]) => resolvedUrl.searchParams.set(k, String(v)));

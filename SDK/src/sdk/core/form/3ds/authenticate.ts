@@ -7,15 +7,21 @@ import type { ThreeDSAuthenticationPayload } from './three-ds-payloads';
 import type { InitCallbacks } from '../../../types/callbacks';
 import type { ChallengeSize } from '../../../types/challenge-window'
 
-export async function authenticate(apiKey: string, cardTokenId: string, sessionId: string, callbacks: InitCallbacks, expiry: string, size: ChallengeSize, ip: string | undefined, forceChallenge: boolean): Promise<ThreeDSAuthenticationPayload> {
-    
+export async function authenticate(
+    apiKey: string, cardTokenId: string, sessionId: string, callbacks: InitCallbacks,
+    expiry: string, size: ChallengeSize, forceChallenge: boolean,
+    parentOrigin: string
+): Promise<ThreeDSAuthenticationPayload> {
+
     const res = await fetch(`${API.base}/3ds/authenticate`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'x-api-key': apiKey,
         },
-        body: JSON.stringify(await buildAuthenticationRequest(cardTokenId, sessionId, callbacks, expiry, size, ip ?? '', forceChallenge)),
+        body: JSON.stringify(await buildAuthenticationRequest(
+            cardTokenId, sessionId, callbacks, expiry, size, forceChallenge, parentOrigin
+        )),
     });
     if (!res.ok) {
         throw new Error(`3DS authenticate failed (${res.status})`);
@@ -28,7 +34,6 @@ export async function authenticate(apiKey: string, cardTokenId: string, sessionI
         errorMessage: j.ErrorMessage ?? j.errorMessage,
         scheme: j.Scheme ?? j.scheme,
         protocolVersion: j.ProtocolVersion ?? j.protocolVersion,
-        serverTransactionId: j.ServerTransactionID ?? j.serverTransactionID, //TODO REMOVE
         challenge: {
             cReq: j.Challenge?.CReq ?? j.challenge?.cReq,
             acsUrl: j.Challenge?.AcsUrl ?? j.challenge?.acsUrl,
@@ -37,29 +42,32 @@ export async function authenticate(apiKey: string, cardTokenId: string, sessionI
     return payload;
 }
 
-async function buildAuthenticationRequest(cardTokenId: string, sessionId: string, callbacks: InitCallbacks, expiry: string, size: ChallengeSize, ip: string, forceChallenge: boolean) {
-    
-    const amount = 
-        callbacks?.getAmount 
-            ? await callbacks.getAmount() 
+async function buildAuthenticationRequest(
+    cardTokenId: string, sessionId: string, callbacks: InitCallbacks, expiry: string,
+    size: ChallengeSize, forceChallenge: boolean, parentOrigin: string
+) {
+
+    const amount =
+        callbacks?.getAmount
+            ? await callbacks.getAmount()
             : undefined;
 
-    if (!amount) { 
+    if (!amount) {
         throw new Error('Missing amount: pass in or provide getAmount()');
     }
 
     const normalisedAmount = normaliseAmount(amount);
 
     const cardholderInformation =
-      callbacks?.getCardholderDetails
-        ? await callbacks.getCardholderDetails()
-        : undefined;
+        callbacks?.getCardholderDetails
+            ? await callbacks.getCardholderDetails()
+            : undefined;
 
     if (!cardholderInformation) {
         throw new Error('Missing cardholder information: pass in or provide getCardholderDetails()');
     }
 
-    const description =     
+    const description =
         callbacks?.getDescription
             ? await callbacks.getDescription()
             : undefined;
@@ -71,28 +79,27 @@ async function buildAuthenticationRequest(cardTokenId: string, sessionId: string
     const expiryMonth = expiry.split('/')[0];
     const expiryYear = expiry.split('/')[1];
 
-    const browserData = await collectBrowserInformation(ip);
+    const browserData = await collectBrowserInformation();
     const normalisedPhoneNumber = normalisePhoneNumber(cardholderInformation.phone);
     const cardholderInformationWithNormalisedPhone = normalisedPhoneNumber
         ? { ...cardholderInformation, phone: normalisedPhoneNumber }
         : cardholderInformation;
 
     return {
-      sessionId,
-      cardTokenId,
-      amount: {
-          value: normalisedAmount.minor,
-          currencyCode: normalisedAmount.currencyNumeric
-      },                                  
-      intent: 'purchase',
-      cardholderInformation: cardholderInformationWithNormalisedPhone, 
-      browserInformation: browserData,
-      description,
-      cardExpiryMonth: expiryMonth,
-      cardExpiryYear: expiryYear,
-      challengeWindowSize: getWindowSize(size),
-      challengePreference: forceChallenge ? "mandated" : null,
-      notificationUrl: `${API.base}/notification`,
-
+        sessionId,
+        cardTokenId,
+        amount: {
+            value: normalisedAmount.minor,
+            currencyCode: normalisedAmount.currencyNumeric
+        },
+        intent: 'purchase',
+        cardholderInformation: cardholderInformationWithNormalisedPhone,
+        browserInformation: browserData,
+        description,
+        cardExpiryMonth: expiryMonth,
+        cardExpiryYear: expiryYear,
+        challengeWindowSize: getWindowSize(size),
+        challengePreference: forceChallenge ? "mandated" : null,
+        notificationUrl: `${API.base}/notification?parentOrigin=${encodeURIComponent(parentOrigin)}`,
     };
 }
