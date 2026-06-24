@@ -2,7 +2,8 @@ import type {
     CompletionOptions,
     CompletionHelpers,
     CompletionContext,
-    ApplePayCompletionDetails
+    ApplePayCompletionDetails,
+    PaymentVerificationResult
 } from "../../../types/completion";
 import type { InitCallbacks } from "../../../types/callbacks";
 import type { ApplePayHandlerOptions } from "../applePayEventHandler";
@@ -11,6 +12,7 @@ import { Logger } from "../../utils/Logger";
 import { authorisedPayment } from "./authorisedPayment";
 import { invokeCompletion } from "../invokeCompletion";
 import { mapApplePayPayment } from "../utils/mapApplePayContact";
+import { extractVerificationToken } from "../utils/extractVerificationToken";
 
 type HandlePaymentAuthorisedParams = {
   session: any;
@@ -150,7 +152,48 @@ export async function handlePaymentAuthorised(params: HandlePaymentAuthorisedPar
     const paymentResponse = await authorisedPayment(publicKey, authoriseBody);
     timer.end({ result: paymentResponse?.result });
 
-    const approved = String(paymentResponse?.result ?? "").toUpperCase() === "SUCCESS";
+    const gatewayApproved = String(paymentResponse?.result ?? "").toUpperCase() === "SUCCESS";
+    const verificationToken = extractVerificationToken(paymentResponse);
+
+    // For plugin-based integrations that support server-side verification, a browser-
+    // reported gateway authorisation alone is not considered trustworthy. A signed
+    // verification token is returned by the backend and must be validated server-side
+    // before the payment is treated as verified. Integrations without a verification
+    // callback fall back to the gateway authorisation result.
+    let verified = gatewayApproved;
+    let verification: PaymentVerificationResult | undefined;
+
+    if (gatewayApproved && callbacks?.onPaymentAuthorised)
+    {
+      const verifyTimer = logger.time("onPaymentAuthorised");
+      try
+      {
+        verification = await callbacks.onPaymentAuthorised({
+          sessionId,
+          approved: gatewayApproved,
+          transactionId: paymentData?.token?.transactionIdentifier ?? undefined,
+          verification: verificationToken,
+          payment: paymentResponse
+        });
+
+        verified = Boolean(verification?.verified);
+        verifyTimer.end({ verified });
+      }
+      catch (error)
+      {
+        verifyTimer.end({ error: (error as Error)?.message });
+        logger.error("onPaymentAuthorised threw; treating as unverified", { error: (error as Error)?.message });
+        verified = false;
+      }
+    }
+    else if (gatewayApproved && !callbacks?.onPaymentAuthorised)
+    {
+      logger.warn("No onPaymentAuthorised callback; completing on gateway result only (not server-verified)", {
+        hasVerificationToken: Boolean(verificationToken)
+      });
+    }
+
+    const approved = gatewayApproved && verified;
 
     const applePayDetails = buildApplePayCompletionDetails(paymentData);
 
@@ -159,13 +202,14 @@ export async function handlePaymentAuthorised(params: HandlePaymentAuthorisedPar
         ? (window as any).ApplePaySession.STATUS_SUCCESS
         : (window as any).ApplePaySession.STATUS_FAILURE
     });
-    logger.info("session.completePayment called", { approved });
+    logger.info("session.completePayment called", { approved, gatewayApproved, verified });
 
     const completionContext: CompletionContext = {
       sessionId,
       cardTokenId: paymentData?.token?.transactionIdentifier ?? "applepay",
       auth: { applePay: redactedApplePayToken(paymentData?.token) },
       payment: paymentResponse,
+      ...(verification ? { verification } : {}),
       ...(applePayDetails ? { applePay: applePayDetails } : {})
     };
 
@@ -181,6 +225,12 @@ export async function handlePaymentAuthorised(params: HandlePaymentAuthorisedPar
         completionHelpers,
         logger.child("Completion")
       );
+
+      if (verification?.redirect)
+      {
+        logger.info("redirecting to express checkout handler result");
+        completionHelpers.redirect(verification.redirect);
+      }
     }
     else
     {

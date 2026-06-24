@@ -25,6 +25,20 @@ export type CompletionHook =
     | Redirect
     | ((ctx: CompletionContext, helpers: CompletionHelpers) => unknown);
 
+export type PaymentAuthorisationResult = {
+    sessionId: string;
+    approved: boolean;
+    transactionId?: string;
+    verification?: string;
+    payment: unknown;
+};
+
+export type PaymentVerificationResult = {
+    verified: boolean;
+    redirect?: Redirect | string;
+    message?: string;
+};
+
 export type ApplePayContactDetails = {
     emailAddress?: string;
     phoneNumber?: string;
@@ -70,4 +84,5 @@ export type CompletionContext = {
     payment?: any;
     error?: Error | unknown;
     applePay?: ApplePayCompletionDetails;
+    verification?: PaymentVerificationResult;
 }
