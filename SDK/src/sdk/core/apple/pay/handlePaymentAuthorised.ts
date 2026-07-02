@@ -45,7 +45,7 @@ export async function handlePaymentAuthorised(params: HandlePaymentAuthorisedPar
   } = params;
 
   logger.info("handlePaymentAuthorised: start", {
-    sessionId,
+    hasSession: Boolean(sessionId),
     hasToken: Boolean(event?.payment?.token),
     currencyCode: normalisedCurrencyNumeric,
     countryCode: normalisedCountryNumeric
@@ -133,7 +133,7 @@ export async function handlePaymentAuthorised(params: HandlePaymentAuthorisedPar
     };
 
     logger.debug("authorise request (redacted)", {
-      sessionId,
+      hasSession: Boolean(sessionId),
       settlementType: authoriseBody.settlementType,
       intent: authoriseBody.intent,
       cardEntry: authoriseBody.cardEntry,

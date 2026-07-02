@@ -200,7 +200,7 @@ export class CheckoutComponent implements CheckoutPort {
     this.boundHandleMessage = this.handleMessage.bind(this);
     window.addEventListener('message', this.boundHandleMessage);
 
-    this.debug('mount: complete', { sessionId: this.sessionId });
+    this.debug('mount: complete', { hasSessionId: Boolean(this.sessionId) });
   }
 
   public enableAutoIntercept(formOrSelector?: string | HTMLFormElement) {
@@ -294,7 +294,7 @@ export class CheckoutComponent implements CheckoutPort {
 
     this.debug('requestToken: stored token', {
       sessionId: this.sessionId,
-      cardTokenId,
+      hasToken: Boolean(cardTokenId),
     });
 
     return cardTokenId;
