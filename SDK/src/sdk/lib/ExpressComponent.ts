@@ -64,7 +64,7 @@ export class ExpressComponent
         mountRoot.innerHTML = '';
 
         const sessionId = await createSession(this.publicKey);
-        this.debug('created session', { sessionId });
+        this.debug('created session', { hasSessionId: Boolean(sessionId) });
 
         const iframeSrc = buildFrameUrl(this.frameUrl, {
             parentOrigin: this.parentOrigin,
@@ -147,7 +147,7 @@ export class ExpressComponent
             this.boundWindowMessageHandler = onWindowMessage;
             window.addEventListener('message', this.boundWindowMessageHandler);
 
-            this.debug('mount: complete', { sessionId });
+            this.debug('mount: complete', { hasSessionId: Boolean(sessionId) });
         }
         else {
             this.logger.warn('No express checkout options are available - Iframe not mounted');

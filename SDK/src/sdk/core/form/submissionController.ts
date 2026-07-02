@@ -46,7 +46,7 @@ export function setupSubmissionController(
 
         try {
             const sessionId = component.getSessionId();
-            debug('session acquired', { sessionId });
+            debug('session acquired', { hasSessionId: Boolean(sessionId) });
 
             // WS
             const timerWs = submitLogger.time('websocket');
@@ -63,7 +63,7 @@ export function setupSubmissionController(
             const timerTokenise = submitLogger.time('tokenise');
             const { cardTokenId, expiry } = await tokeniseAndGetExpiry(component);
             timerTokenise.end();
-            debug('tokenised', { cardTokenId, expiry });
+            debug('tokenised', { hasCardTokenId: Boolean(cardTokenId), expiry });
 
             if (cancelled) return { status: 'cancel' };
 

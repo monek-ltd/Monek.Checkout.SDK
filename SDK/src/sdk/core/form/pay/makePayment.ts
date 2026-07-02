@@ -30,7 +30,7 @@ export async function pay(
     logger.debug(`[Pay] ${message}`, data ?? '');
   };
 
-  debug('start', { sessionId });
+  debug('start', { hasSessionId: Boolean(sessionId) });
 
   const requestBody = await buildPaymentRequest(cardTokenId, sessionId, expiry, component);
   debug('request built', requestBody);
