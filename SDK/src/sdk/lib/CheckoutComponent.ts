@@ -91,6 +91,9 @@ export class CheckoutComponent implements CheckoutPort {
   private boundHandleMessage?: (event: MessageEvent) => void;
   private sessionId?: string;
 
+  private iframeLoaded = false;
+  private readyHandled = false;
+
   private readonly logger: Logger;
 
   constructor(publicKey: PublicKey, options: CheckoutInitOptions) {
@@ -189,12 +192,15 @@ export class CheckoutComponent implements CheckoutPort {
 
     iframe.addEventListener('load', () => {
       this.debug('iframe load');
+      this.iframeLoaded = true; // iframe loaded
+
+      this.messenger!.post({ type: 'PING_FROM_PARENT' });
+
       if (this.themeVars) {
         this.messenger!.post({ type: 'configure', themeVars: this.themeVars! });
       }
     });
 
-    this.messenger.post({ type: 'PING_FROM_PARENT' });
     this.enableAutoIntercept(hostingForm);
 
     this.boundHandleMessage = this.handleMessage.bind(this);
@@ -324,7 +330,13 @@ export class CheckoutComponent implements CheckoutPort {
     switch (data.type) {
       case 'ready':
         {
+          if (!this.iframeLoaded || this.readyHandled) {
+            return; // prevent a blind ready, or a duplicate
+          }
+
+          this.readyHandled = true;
           this.debug('iframe ready');
+
           if (this.themeVars) {
             this.messenger?.post({ type: 'configure', themeVars: this.themeVars! });
           }
