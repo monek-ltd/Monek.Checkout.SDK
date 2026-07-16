@@ -1,4 +1,4 @@
-import { API } from '../../../config';
+import { FRAMES } from '../../../config';
 import type { ChallengeOptions, ChallengeSize, ChallengeResult } from '../../../types/challenge-window';
 import type { Logger } from '../../utils/Logger';
 import { performRedirect } from '../helpers/performRedirect';
@@ -133,7 +133,9 @@ export function openChallengeWindow(options: ChallengeOptions, logger: Logger) {
     if (event.source !== iframeElement.contentWindow) {
       return;
     }
-    if (event.origin !== new URL(API.base).origin) {
+    // The notification page is served from the frames host (the API 302-redirects the ACS return
+    // there), so the front-channel 3ds.challenge.close message originates from FRAMES.base.
+    if (event.origin !== new URL(FRAMES.base).origin) {
       return;
     }
     const data = event.data || {};
