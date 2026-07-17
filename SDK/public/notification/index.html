@@ -48,8 +48,8 @@
 <body>
     <div class="wrap">
         <div class="card">
-            <h1>Authentication complete</h1>
-            <p class="muted">You can return to checkout. We'll finish things up.</p>
+            <h1>Payment in progress</h1>
+            <p class="muted">Returning you to your merchant to finish things up. If nothing happens, click below</p>
             <button id="close">Return to checkout</button>
         </div>
     </div>
@@ -66,13 +66,15 @@
 
             const parentOrigin = qp('parentOrigin');
 
-            if (parentOrigin) {
-                document.getElementById('close')?.addEventListener('click', function () {
-                    try {
-                        window.parent.postMessage(payload, parentOrigin);
-                    } catch (e) { /* ignore */ }
-                });
+            function notifyParent() {
+                if (!parentOrigin) return;
+                try {
+                    window.parent.postMessage(payload, parentOrigin);
+                } catch (e) { /* ignore */ }
             }
+
+            notifyParent();
+            document.getElementById('close')?.addEventListener('click', notifyParent);
         })();
     </script>
 </body>

@@ -4,6 +4,11 @@ import type { Logger } from '../../utils/Logger';
 import { performRedirect } from '../helpers/performRedirect';
 
 const DEFAULT_HARD_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+// The notification page auto-fires 3ds.challenge.close for every outcome. On the happy path the
+// authoritative result arrives via the WebSocket back-channel (3ds.challenge.result, status Y);
+// give it a brief grace window to win before the front-channel close completes the flow, so we
+// don't proceed before the result is committed server-side.
+const FRONT_CHANNEL_GRACE_MS = 1500;
 
 export function openChallengeWindow(options: ChallengeOptions, logger: Logger) {
   const {
@@ -80,6 +85,8 @@ export function openChallengeWindow(options: ChallengeOptions, logger: Logger) {
   let resolveDone!: (result: ChallengeResult) => void;
   const done = new Promise<ChallengeResult>((resolve) => { resolveDone = resolve; });
 
+  let frontChannelCloseTimeoutId: number | undefined;
+
   const complete = (result: ChallengeResult) => {
     if (isSettled) {
       return;
@@ -106,6 +113,9 @@ export function openChallengeWindow(options: ChallengeOptions, logger: Logger) {
     } catch { }
 
     window.clearTimeout(hardTimeoutId);
+    if (frontChannelCloseTimeoutId !== undefined) {
+      window.clearTimeout(frontChannelCloseTimeoutId);
+    }
   };
 
   // User closed (button or ESC)
@@ -140,7 +150,15 @@ export function openChallengeWindow(options: ChallengeOptions, logger: Logger) {
     }
     const data = event.data || {};
     if (data?.type === '3ds.challenge.close') {
-      complete({ kind: 'polled', data });
+      // Defer to the WebSocket back-channel result for a short grace period on the happy path.
+      // complete() is idempotent, so if the back-channel resolves first this is a no-op; on
+      // fail/cancel (no WS result) the flow proceeds after the grace period instead of hanging.
+      if (frontChannelCloseTimeoutId === undefined) {
+        frontChannelCloseTimeoutId = window.setTimeout(
+          () => complete({ kind: 'polled', data }),
+          FRONT_CHANNEL_GRACE_MS
+        );
+      }
     }
   };
   window.addEventListener('message', onWindowMessage);
