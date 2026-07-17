@@ -1,5 +1,4 @@
 import type { CheckoutPort } from '../../../types/checkout-port';
-import type { CompletionOptions } from "../../../types/completion";
 import type { ChallengeSize, ChallengeOptions } from '../../../types/challenge-window';
 import type { WsClient } from '../../client/WebSocketClient';
 
@@ -7,14 +6,27 @@ import { getThreeDSMethodData } from '../3ds/panInformation';
 import { performThreeDSMethodInvocation } from '../3ds/methodInvocation';
 import { authenticate } from '../3ds/authenticate';
 import { openChallengeWindow } from "../3ds/challenge";
-import { runCompletionHook } from '../helpers/runCompletionHook';
 import { TIMEOUT_THREEDS_METHOD_MS, TIMEOUT_CHALLENGE_MS } from './constants';
 import { Logger } from '../../utils/Logger';
+
+// The ACS transStatus letters carried by both the WS back-channel and the front-channel close.
+const TERMINAL_TRANS_STATUSES = ['Y', 'N', 'U', 'A', 'R'];
+
+function isTerminalTransStatus(status: unknown): boolean {
+  return typeof status === 'string' && TERMINAL_TRANS_STATUSES.includes(status.toUpperCase());
+}
+
+// Maps an ACS transStatus letter to the SDK outcome. Y/A (authenticated / attempted, both carry
+// liability shift) proceed; N/U/R and anything unknown fail conservatively → onError.
+export function mapTransStatus(status: unknown): 'authenticated' | 'not-authenticated' {
+  const normalised = typeof status === 'string' ? status.toUpperCase() : '';
+  return normalised === 'Y' || normalised === 'A' ? 'authenticated' : 'not-authenticated';
+}
 
 type ChallengeResult =
   | { kind: 'closed' }
   | { kind: 'timeout' }
-  | { kind: 'polled'; data: unknown };
+  | { kind: 'polled'; data: { status?: string; resultSummary?: string } };
 
 export type AuthContext = {
   sessionId: string;
@@ -28,7 +40,6 @@ export async function runThreeDSFlow(
   sessionId: string,
   cardTokenId: string,
   expiry: string,
-  completionOptions: CompletionOptions | undefined,
   webSocketClient: WsClient | null,
   logger: Logger
 ): Promise<AuthContext> {
@@ -118,59 +129,34 @@ export async function runThreeDSFlow(
     );
     timerChallenge.end({ kind: challengeResult.kind });
 
-    if (challengeResult.kind === 'closed') {
-      flowLogger.info('challenge closed by user');
-
-      if (completionOptions?.onClosed || completionOptions?.onCancel) {
-        flowLogger.debug('invoking completion: onClosed/onCancel');
-        await runCompletionHook(
-          completionOptions.onClosed ?? completionOptions.onCancel,
-          { sessionId, cardTokenId, auth: challengeResult, payment: null },
-          // helpers are passed by caller
-          // we keep API here pure and return control to caller
-          // caller will supply helpers to runCompletionHook
-          // we only assemble data here
-          // no-op helpers here
-          { redirect: () => undefined, submitForm: () => undefined, reenable: () => undefined, disable: () => undefined }
-        );
-
-        authenticationResult.result = 'not-authenticated';
-        const ctx: AuthContext = { sessionId, cardTokenId, expiry, authenticationResult };
-        flowLogger.info('end', { outcome: 'closed' });
-        return ctx;
-
-      }
-      else {
-        flowLogger.warn('no completion handler for challenge closed; throwing');
-        throw new Error('Challenge closed by user');
-      }
-    }
-    else if (challengeResult.kind === 'timeout') {
-      flowLogger.warn('challenge timed out');
-
-      if (completionOptions?.onCancel) {
-        flowLogger.debug('invoking completion: onCancel (timeout)');
-
-        await runCompletionHook(
-          completionOptions.onCancel,
-          { sessionId, cardTokenId, auth: challengeResult, payment: null },
-          { redirect: () => undefined, submitForm: () => undefined, reenable: () => undefined, disable: () => undefined }
-        );
-
-        authenticationResult.result = 'not-authenticated';
-        const ctx: AuthContext = { sessionId, cardTokenId, expiry, authenticationResult };
-        flowLogger.info('end', { outcome: 'time-out' });
-        return ctx;
-      }
-      else {
-        flowLogger.warn('no completion handler for timeout; throwing');
-        throw new Error('Challenge timed out');
-      }
+    if (challengeResult.kind === 'closed' || challengeResult.kind === 'timeout') {
+      // User cancel or hard timeout: not an authentication failure. Return a distinct 'cancelled'
+      // result and let submissionController dispatch onCancel/onClosed with the real helpers (a
+      // single hook per attempt) rather than invoking it here with stub helpers.
+      flowLogger.info('challenge cancelled', { kind: challengeResult.kind });
+      authenticationResult.result = 'cancelled';
+      const ctx: AuthContext = { sessionId, cardTokenId, expiry, authenticationResult };
+      flowLogger.info('end', { outcome: challengeResult.kind });
+      return ctx;
     }
     else {
-      flowLogger.info('challenge polled result', { data: challengeResult.data });
+      // Polled result carrying the real ACS transStatus (from the WS back-channel, or a
+      // status-bearing front-channel close). Branch on the outcome instead of assuming success.
+      const status = challengeResult.data?.status;
+      const outcome = mapTransStatus(status);
+      flowLogger.info('challenge polled result', { status, outcome, resultSummary: challengeResult.data?.resultSummary });
 
-      //Fall through to end
+      authenticationResult.transStatus = status;
+      authenticationResult.resultSummary = challengeResult.data?.resultSummary;
+
+      if (outcome === 'not-authenticated') {
+        authenticationResult.result = 'not-authenticated';
+        const ctx: AuthContext = { sessionId, cardTokenId, expiry, authenticationResult };
+        flowLogger.info('end', { outcome: 'not-authenticated (challenge)' });
+        return ctx;
+      }
+
+      // authenticated → fall through to end
     }
   }
   else if (authenticationResult?.result === 'not-authenticated') {
@@ -214,11 +200,13 @@ async function performChallenge(
         const event = await webSocketClient.waitFor<any>(
           '3ds.challenge.result',
           (received: any) => {
+            // Match any terminal ACS status (Y/N/U/A/R), not just success — the caller branches
+            // on the real status, so a failed challenge must resolve here rather than time out.
             const matches =
               received &&
               typeof received === 'object' &&
               received.type === '3ds.challenge.result' &&
-              received.status === 'Y';
+              isTerminalTransStatus(received.status);
 
             if (matches) {
               logger.info('3DS challenge: WS match', {
@@ -233,7 +221,7 @@ async function performChallenge(
           TIMEOUT_CHALLENGE_MS
         );
 
-        return { status: event?.status ?? 'unknown', data: { resultSummary: event?.resultSummary } };
+        return { status: event?.status ?? 'unknown', resultSummary: event?.resultSummary };
       }
       catch (error) {
         logger.warn('3DS challenge: WS wait failed; treating as timeout', { message: (error as Error)?.message });

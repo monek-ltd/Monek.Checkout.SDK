@@ -64,6 +64,13 @@
                 type: '3ds.challenge.close'
             };
 
+            // The backend forwards the ACS transStatus on the redirect (falling back to omitting it).
+            // When present it makes this front-channel close authoritative about the outcome.
+            const status = qp('transStatus') || qp('status');
+            if (status) {
+                payload.status = status;
+            }
+
             const parentOrigin = qp('parentOrigin');
 
             function notifyParent() {

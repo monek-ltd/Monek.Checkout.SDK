@@ -13,8 +13,13 @@ export type ChallengeOptions = {
   force?: boolean
 };
 
+export type ChallengePolledData = {
+  status?: string;
+  resultSummary?: string;
+} & Record<string, unknown>;
+
 export type ChallengeResult =
   | { kind: 'message'; data: any }
-  | { kind: 'polled'; data: any }
+  | { kind: 'polled'; data: ChallengePolledData }
   | { kind: 'closed' }
   | { kind: 'timeout' };

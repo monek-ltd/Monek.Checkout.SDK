@@ -74,7 +74,6 @@ export function setupSubmissionController(
                 sessionId,
                 cardTokenId,
                 expiry,
-                completionOptions,
                 webSocketClient,
                 submitLogger.child('ThreeDS')
             );
@@ -82,6 +81,25 @@ export function setupSubmissionController(
             debug('3DS flow complete', { result: authContext.authenticationResult?.result });
 
             if (cancelled) return { status: 'cancel' };
+
+            if (authContext.authenticationResult?.result === 'cancelled') {
+                // User closed the challenge or it timed out. Dispatch onCancel/onClosed once, with
+                // the real completion helpers. threeDSFlow no longer invokes the hook itself.
+                const hook = completionOptions?.onCancel ?? completionOptions?.onClosed;
+                if (hook) {
+                    const timerHook = submitLogger.time('completion:onCancel');
+                    await runCompletionHook(
+                        hook,
+                        { sessionId, cardTokenId, auth: authContext.authenticationResult, payment: null },
+                        helpers
+                    );
+                    timerHook.end();
+                    debug('completion onCancel/onClosed hook executed');
+                    return { status: 'cancel' };
+                }
+                submitLogger.warn('challenge cancelled with no onCancel/onClosed hook; throwing');
+                throw new Error('3DS challenge cancelled');
+            }
 
             if (authContext.authenticationResult?.result === 'not-authenticated') {
                 submitLogger.warn('not-authenticated; invoking onError if provided');
