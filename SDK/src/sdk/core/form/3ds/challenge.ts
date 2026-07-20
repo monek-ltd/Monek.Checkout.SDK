@@ -150,9 +150,17 @@ export function openChallengeWindow(options: ChallengeOptions, logger: Logger) {
     }
     const data = event.data || {};
     if (data?.type === '3ds.challenge.close') {
-      // Defer to the WebSocket back-channel result for a short grace period on the happy path.
-      // complete() is idempotent, so if the back-channel resolves first this is a no-op; on
-      // fail/cancel (no WS result) the flow proceeds after the grace period instead of hanging.
+      const status = typeof data.status === 'string' ? data.status : undefined;
+      if (status) {
+        // A status-bearing close carries the real ACS outcome, so it is authoritative — resolve
+        // immediately without waiting out the grace window. complete() is idempotent, so if the
+        // back-channel already resolved this is a no-op (race between channels is harmless).
+        complete({ kind: 'polled', data: { status } });
+        return;
+      }
+      // Status-less close (fallback): defer to the WebSocket back-channel result for a short grace
+      // period on the happy path. complete() is idempotent, so if the back-channel resolves first
+      // this is a no-op; on fail/cancel the flow proceeds after the grace period instead of hanging.
       if (frontChannelCloseTimeoutId === undefined) {
         frontChannelCloseTimeoutId = window.setTimeout(
           () => complete({ kind: 'polled', data }),
