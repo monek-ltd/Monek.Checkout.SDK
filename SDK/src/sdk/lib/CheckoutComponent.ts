@@ -16,6 +16,7 @@ import { buildFrameUrl, createSandboxedIframe } from '../core/iframe/createIfram
 import { resolveForm } from '../core/form/resolveForm';
 
 import { Logger, makeLogger, type LogLevel } from '../core/utils/Logger';
+import type { SessionProvider } from './initialize';
 
 type PublicKey = string;
 type CSSVars = Record<string, string>;
@@ -172,7 +173,8 @@ export class CheckoutComponent implements CheckoutPort {
     this.containerEl = mountRoot;
     mountRoot.innerHTML = '';
 
-    this.sessionId = await createSession(this.publicKey);
+    const provider = this.options.getSessionId as SessionProvider | undefined;
+    this.sessionId = provider ? await provider() : await createSession(this.publicKey);
 
     const iframeSrc = buildFrameUrl(this.frameUrl, {
       parentOrigin: this.parentOrigin,

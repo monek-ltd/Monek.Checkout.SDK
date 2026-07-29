@@ -63,7 +63,9 @@ export class ExpressComponent
 
         mountRoot.innerHTML = '';
 
-        const sessionId = await createSession(this.publicKey);
+        const provider = this.options.getSessionId as ((...args: unknown[]) => Promise<string>) | undefined;
+        const sessionId = provider ? await provider() : await createSession(this.publicKey);
+
         this.debug('created session', { hasSessionId: Boolean(sessionId) });
 
         const iframeSrc = buildFrameUrl(this.frameUrl, {
