@@ -90,6 +90,10 @@ const ExpressCheckoutApp: React.FC = () => {
             });
 
             if (event?.data?.type === "PING_FROM_PARENT") {
+                if (event.origin !== getParentOriginParam()) {
+                    return; // don't trust an unexpected origin
+                }
+
                 allowedOriginRef.current = event.origin;
                 iframeLogger.info("handshake: parent origin captured", { origin: event.origin });
 
