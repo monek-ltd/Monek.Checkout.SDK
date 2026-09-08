@@ -143,6 +143,29 @@ export class CheckoutComponent implements CheckoutPort {
     }
     return this.sessionId;
   }
+
+  // Called by the submission controller when a payment attempt 401s because the cached
+  // sessionId has expired. Mints a fresh session, swaps it in, and pushes it into the already-
+  // mounted iframe (via postMessage) so a re-tokenise picks it up, without disturbing the
+  // card details the shopper has already entered.
+  public async refreshSession(): Promise<string> {
+    this.debug('refreshSession: start');
+    const newSessionId = await createSession(this.publicKey);
+    this.sessionId = newSessionId;
+
+    if (this.messenger) {
+      this.messenger.post({ type: 'updateSession', sessionId: newSessionId });
+      await this.messenger.waitFor(
+        (message: FrameToParentMessage) => message.type === 'sessionUpdated',
+        () => undefined,
+        'Session update timed out'
+      );
+    }
+
+    this.debug('refreshSession: complete', { hasSessionId: Boolean(this.sessionId) });
+    return newSessionId;
+  }
+
   public getPublicKey(): string { return this.publicKey; }
   public getValidityId(): string | undefined { return this.options.validityId as string | undefined; }
   public getParentOrigin(): string { return this.parentOrigin; }
@@ -175,6 +198,9 @@ export class CheckoutComponent implements CheckoutPort {
 
     const provider = this.options.getSessionId as SessionProvider | undefined;
     this.sessionId = provider ? await provider() : await createSession(this.publicKey);
+    if (typeof this.sessionId !== 'string' || this.sessionId.length === 0) {
+      throw new Error('[Checkout] Session provider returned an invalid session id');
+    }
 
     const iframeSrc = buildFrameUrl(this.frameUrl, {
       parentOrigin: this.parentOrigin,

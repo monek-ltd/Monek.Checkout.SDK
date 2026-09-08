@@ -54,10 +54,21 @@ function createSessionManager(publicKey: PublicKey) {
   const getSessionId: SessionProvider = () => {
     if (!pending) {
       // cache the PROMISE so concurrent checkout+express mounts share one POST /session
-      pending = createSession(publicKey).catch((err) => {
-        pending = null;
-        throw err;
-      });
+      const current: Promise<string> = createSession(publicKey);
+      pending = current;
+      // clear the cache once this attempt settles (success or failure) so a later,
+      // non-concurrent mount (e.g. after a completed payment or a re-mount) always
+      // triggers a fresh POST /session instead of reusing an already-consumed sessionId
+      current
+        .finally(() => {
+          if (pending === current) {
+            pending = null;
+          }
+        })
+        .catch(() => {
+          // rejection is already observed by the caller awaiting `pending`/`current`;
+          // swallow it here so it doesn't surface as an unhandled rejection.
+        });
     }
     return pending;
   };

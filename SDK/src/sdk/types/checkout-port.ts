@@ -11,6 +11,7 @@ export interface CheckoutPort {
   // --- Session / identity ---
   getSessionId(): string;
   getPublicKey(): string;
+  refreshSession(): Promise<string>;
 
   // --- Iframe RPC ---
   requestToken(): Promise<string>;

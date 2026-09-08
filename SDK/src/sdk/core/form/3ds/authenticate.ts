@@ -6,6 +6,7 @@ import { normalisePhoneNumber } from '../../utils/normalisePhoneNumber';
 import type { ThreeDSAuthenticationPayload } from './three-ds-payloads';
 import type { InitCallbacks } from '../../../types/callbacks';
 import type { ChallengeSize } from '../../../types/challenge-window'
+import { makeSessionExpiredError } from '../../errors/sessionExpired';
 
 export async function authenticate(
     apiKey: string, cardTokenId: string, sessionId: string, callbacks: InitCallbacks,
@@ -24,6 +25,9 @@ export async function authenticate(
         )),
     });
     if (!res.ok) {
+        if (res.status === 401) {
+            throw makeSessionExpiredError(`3DS authenticate failed: session expired (${res.status})`);
+        }
         throw new Error(`3DS authenticate failed (${res.status})`);
     }
 

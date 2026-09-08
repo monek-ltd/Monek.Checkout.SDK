@@ -121,7 +121,9 @@ const HostedFieldsApp: React.FC = () => {
 
     const allowedOriginRef = useRef<string>(getParentOriginParam());
 
-    const sessionId = useMemo(getSessionId, []);
+    // Mutable so the parent can refresh it in place (via `updateSession`) without remounting the
+    // iframe when the backend session has expired mid-checkout.
+    const sessionIdRef = useRef<string>(getSessionId());
     const publicKey = useMemo(getPublicKey, []);
 
     const tokenise = useCallback(async (): Promise<string> => {
@@ -148,6 +150,7 @@ const HostedFieldsApp: React.FC = () => {
             throw new Error('Invalid CVC');
         }
 
+        const sessionId = sessionIdRef.current;
         const payload = { PAN: panPlain, CVV: cvcPlain, SessionID: sessionId };
 
         iframeLogger.debug('tokenise: request (redacted)', {
@@ -173,6 +176,11 @@ const HostedFieldsApp: React.FC = () => {
         timer.end({ status: response.status });
 
         if (!response.ok) {
+            if (response.status === 401) {
+                const sessionExpiredError: any = new Error(`Tokenise failed: session expired (${response.status})`);
+                sessionExpiredError.code = 'SESSION_EXPIRED';
+                throw sessionExpiredError;
+            }
             throw new Error(`Tokenise failed (${response.status})`);
         }
 
@@ -185,7 +193,7 @@ const HostedFieldsApp: React.FC = () => {
 
         iframeLogger.info('tokenise: success');
         return tokenId;
-    }, [publicKey, sessionId]);
+    }, [publicKey]);
 
     useEffect(() => {
         window.parent.postMessage({ type: 'ready' }, allowedOriginRef.current);
@@ -234,10 +242,17 @@ const HostedFieldsApp: React.FC = () => {
                 catch (error: any) {
                     iframeLogger.error('tokenise: failure', { message: error?.message ?? String(error) });
                     window.parent.postMessage(
-                        { type: 'error', code: 'TOKENISE_FAILED', message: error?.message || 'Tokenisation failed' },
+                        { type: 'error', code: error?.code ?? 'TOKENISE_FAILED', message: error?.message || 'Tokenisation failed' },
                         allowedOriginRef.current
                     );
                 }
+                return;
+            }
+
+            if (data.type === 'updateSession' && typeof data.sessionId === 'string' && data.sessionId) {
+                sessionIdRef.current = data.sessionId;
+                iframeLogger.info('session updated', { sessionId: data.sessionId });
+                window.parent.postMessage({ type: 'sessionUpdated', sessionId: data.sessionId }, allowedOriginRef.current);
                 return;
             }
 
