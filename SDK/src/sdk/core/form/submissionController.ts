@@ -6,6 +6,7 @@ import { runThreeDSFlow } from "./submission/threeDSFlow";
 import { completeSubmission } from "./submission/completeSubmission";
 import { runCompletionHook } from './helpers/runCompletionHook';
 import { Logger } from '../utils/Logger';
+import { isSessionExpiredError } from '../errors/sessionExpired';
 
 export type SubmissionOutcome =
     | { status: 'success' }
@@ -28,6 +29,104 @@ export function setupSubmissionController(
 
     const debug = (m: string, d?: unknown) => submitLogger.debug(m, d ?? undefined);
 
+    // Runs the WS + tokenise + 3DS + completion pipeline for a given sessionId. Extracted so
+    // runOnce() can retry it exactly once with a freshly-minted sessionId if the backend
+    // session expired mid-attempt (401 from tokenise, 3DS, or payment).
+    async function attemptSubmission(
+        sessionId: string,
+        completionOptions: ReturnType<CheckoutPort['getCompletionOptions']>
+    ): Promise<SubmissionOutcome> {
+        // Close any socket left over from a prior (failed) attempt before opening a new one.
+        try { webSocketClient?.close(); } catch { /* ignore */ }
+        webSocketClient = null;
+
+        // WS
+        const timerWs = submitLogger.time('websocket');
+        try {
+            webSocketClient = await openSessionWebSocket(sessionId, submitLogger.child('WebSocket'));
+            timerWs.end({ connected: Boolean(webSocketClient) });
+            debug('websocket initialised', { connected: Boolean(webSocketClient) });
+        } catch (wsError) {
+            timerWs.end({ error: (wsError as Error)?.message });
+            submitLogger.warn('websocket failed to open; continuing without it', { message: (wsError as Error)?.message });
+        }
+
+        // Tokenise
+        const timerTokenise = submitLogger.time('tokenise');
+        const { cardTokenId, expiry } = await tokeniseAndGetExpiry(component);
+        timerTokenise.end();
+        debug('tokenised', { hasCardTokenId: Boolean(cardTokenId), expiry });
+
+        if (cancelled) return { status: 'cancel' };
+
+        // 3DS
+        const timer3ds = submitLogger.time('3ds');
+        const authContext = await runThreeDSFlow(
+            component,
+            sessionId,
+            cardTokenId,
+            expiry,
+            webSocketClient,
+            submitLogger.child('ThreeDS')
+        );
+        timer3ds.end({ result: authContext.authenticationResult?.result });
+        debug('3DS flow complete', { result: authContext.authenticationResult?.result });
+
+        if (cancelled) return { status: 'cancel' };
+
+        if (authContext.authenticationResult?.result === 'cancelled') {
+            // User closed the challenge or it timed out. Dispatch onCancel/onClosed once, with
+            // the real completion helpers. threeDSFlow no longer invokes the hook itself.
+            const hook = completionOptions?.onCancel ?? completionOptions?.onClosed;
+            if (hook) {
+                const timerHook = submitLogger.time('completion:onCancel');
+                await runCompletionHook(
+                    hook,
+                    { sessionId, cardTokenId, auth: authContext.authenticationResult, payment: null },
+                    helpers!
+                );
+                timerHook.end();
+                debug('completion onCancel/onClosed hook executed');
+                return { status: 'cancel' };
+            }
+            submitLogger.warn('challenge cancelled with no onCancel/onClosed hook; throwing');
+            throw new Error('3DS challenge cancelled');
+        }
+
+        if (authContext.authenticationResult?.result === 'not-authenticated') {
+            submitLogger.warn('not-authenticated; invoking onError if provided');
+            if (completionOptions?.onError) {
+                const timerHook = submitLogger.time('completion:onError');
+                await runCompletionHook(
+                    completionOptions.onError,
+                    { sessionId, cardTokenId, auth: authContext.authenticationResult, payment: null },
+                    helpers!
+                );
+                timerHook.end();
+                debug('completion onError hook executed');
+            } else {
+                submitLogger.error('not-authenticated with no onError hook');
+            }
+            return { status: 'not-authenticated' };
+        }
+
+        // Completion
+        submitLogger.info('proceeding to completion', { mode: completionOptions?.mode ?? 'form' });
+        const timerComplete = submitLogger.time('completeSubmission');
+        await completeSubmission(
+            form,
+            component,
+            completionOptions,
+            { sessionId, cardTokenId, expiry, auth: authContext.authenticationResult },
+            helpers!,
+            submitLogger
+        );
+        timerComplete.end();
+        debug('completion finished');
+
+        return { status: 'success' };
+    }
+
     async function runOnce(): Promise<SubmissionOutcome> {
         if (isSubmitting) {
             debug('blocked: already submitting');
@@ -48,91 +147,34 @@ export function setupSubmissionController(
             const sessionId = component.getSessionId();
             debug('session acquired', { hasSessionId: Boolean(sessionId) });
 
-            // WS
-            const timerWs = submitLogger.time('websocket');
             try {
-                webSocketClient = await openSessionWebSocket(sessionId, submitLogger.child('WebSocket'));
-                timerWs.end({ connected: Boolean(webSocketClient) });
-                debug('websocket initialised', { connected: Boolean(webSocketClient) });
-            } catch (wsError) {
-                timerWs.end({ error: (wsError as Error)?.message });
-                submitLogger.warn('websocket failed to open; continuing without it', { message: (wsError as Error)?.message });
-            }
+                return await attemptSubmission(sessionId, completionOptions);
+            } catch (error) {
+                if (cancelled) return { status: 'cancel' };
 
-            // Tokenise
-            const timerTokenise = submitLogger.time('tokenise');
-            const { cardTokenId, expiry } = await tokeniseAndGetExpiry(component);
-            timerTokenise.end();
-            debug('tokenised', { hasCardTokenId: Boolean(cardTokenId), expiry });
-
-            if (cancelled) return { status: 'cancel' };
-
-            // 3DS
-            const timer3ds = submitLogger.time('3ds');
-            const authContext = await runThreeDSFlow(
-                component,
-                sessionId,
-                cardTokenId,
-                expiry,
-                webSocketClient,
-                submitLogger.child('ThreeDS')
-            );
-            timer3ds.end({ result: authContext.authenticationResult?.result });
-            debug('3DS flow complete', { result: authContext.authenticationResult?.result });
-
-            if (cancelled) return { status: 'cancel' };
-
-            if (authContext.authenticationResult?.result === 'cancelled') {
-                // User closed the challenge or it timed out. Dispatch onCancel/onClosed once, with
-                // the real completion helpers. threeDSFlow no longer invokes the hook itself.
-                const hook = completionOptions?.onCancel ?? completionOptions?.onClosed;
-                if (hook) {
-                    const timerHook = submitLogger.time('completion:onCancel');
-                    await runCompletionHook(
-                        hook,
-                        { sessionId, cardTokenId, auth: authContext.authenticationResult, payment: null },
-                        helpers
-                    );
-                    timerHook.end();
-                    debug('completion onCancel/onClosed hook executed');
-                    return { status: 'cancel' };
+                if (!isSessionExpiredError(error)) {
+                    throw error;
                 }
-                submitLogger.warn('challenge cancelled with no onCancel/onClosed hook; throwing');
-                throw new Error('3DS challenge cancelled');
-            }
 
-            if (authContext.authenticationResult?.result === 'not-authenticated') {
-                submitLogger.warn('not-authenticated; invoking onError if provided');
-                if (completionOptions?.onError) {
-                    const timerHook = submitLogger.time('completion:onError');
-                    await runCompletionHook(
-                        completionOptions.onError,
-                        { sessionId, cardTokenId, auth: authContext.authenticationResult, payment: null },
-                        helpers
-                    );
-                    timerHook.end();
-                    debug('completion onError hook executed');
-                } else {
-                    submitLogger.error('not-authenticated with no onError hook');
+                submitLogger.warn('session expired mid-submission; refreshing session and retrying once', {
+                    message: (error as Error)?.message
+                });
+
+                let refreshedSessionId: string;
+                try {
+                    refreshedSessionId = await component.refreshSession();
+                } catch (refreshError) {
+                    submitLogger.error('session refresh failed; surfacing original error', {
+                        message: (refreshError as Error)?.message
+                    });
+                    throw error;
                 }
-                return { status: 'not-authenticated' };
+
+                if (cancelled) return { status: 'cancel' };
+
+                debug('session refreshed; retrying submission', { hasSessionId: Boolean(refreshedSessionId) });
+                return await attemptSubmission(refreshedSessionId, completionOptions);
             }
-
-            // Completion
-            submitLogger.info('proceeding to completion', { mode: completionOptions?.mode ?? 'form' });
-            const timerComplete = submitLogger.time('completeSubmission');
-            await completeSubmission(
-                form,
-                component,
-                completionOptions,
-                { sessionId, cardTokenId, expiry, auth: authContext.authenticationResult },
-                helpers,
-                submitLogger
-            );
-            timerComplete.end();
-            debug('completion finished');
-
-            return { status: 'success' };
         } catch (error) {
             submitLogger.error('submission error', { message: (error as Error)?.message });
             debug('error caught', { message: (error as Error)?.message });

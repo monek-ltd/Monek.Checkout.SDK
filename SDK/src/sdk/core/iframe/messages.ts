@@ -24,6 +24,7 @@ export type ParentToFrameMessage =
   | { type: 'PING_FROM_PARENT' }
   | { type: 'tokenise' }
   | { type: 'getExpiry' }
+  | { type: 'updateSession'; sessionId: string }
   | ConfigureLoggerMessage;
 
 export type FrameToParentMessage =
@@ -31,6 +32,7 @@ export type FrameToParentMessage =
   | { type: 'error'; code?: string; message?: string }
   | { type: 'tokenised'; cardToken: string }
   | { type: 'expiry'; expiry: string }
+  | { type: 'sessionUpdated'; sessionId: string }
   | LogEntryMessage;
 
 export const IFRAME_ERROR = 'IFRAME_ERROR' as const;

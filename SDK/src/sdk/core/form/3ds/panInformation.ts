@@ -1,5 +1,6 @@
 import { API } from '../../../config';
 import type { ThreeDSMethodPayload } from './three-ds-payloads';
+import { makeSessionExpiredError } from '../../errors/sessionExpired';
 
 export async function getThreeDSMethodData(apiKey: string, cardTokenId: string, sessionId: string): Promise<ThreeDSMethodPayload> {
     const res = await fetch(`${API.base}/3ds`, {
@@ -13,7 +14,12 @@ export async function getThreeDSMethodData(apiKey: string, cardTokenId: string, 
             SessionID: sessionId,
         }),
     });
-    if (!res.ok) throw new Error(`3DS start failed (${res.status})`);
+    if (!res.ok) {
+        if (res.status === 401) {
+            throw makeSessionExpiredError(`3DS start failed: session expired (${res.status})`);
+        }
+        throw new Error(`3DS start failed (${res.status})`);
+    }
     const j = await res.json();
 
     const payload: ThreeDSMethodPayload = {

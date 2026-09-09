@@ -147,3 +147,6 @@ vite.config.ts.timestamp-*
 *.suo
 /SDK/.vscode
 /SDK/.vite/deps
+
+# local
+/local

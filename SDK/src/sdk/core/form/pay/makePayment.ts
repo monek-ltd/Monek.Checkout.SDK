@@ -5,6 +5,7 @@ import type { PaymentResponse } from './payment-payloads';
 import { buildPaymentRequest } from './buildPaymentRequest';
 import { mapPaymentResponse } from './mapPaymentResponse';
 import type { Logger } from '../../utils/Logger';
+import { makeSessionExpiredError } from '../../errors/sessionExpired';
 
 export type PayDeps = {
   fetchImpl?: typeof fetch;
@@ -53,6 +54,9 @@ export async function pay(
 
   if (!response.ok) {
     debug('non-OK response', { status: response.status });
+    if (response.status === 401) {
+      throw makeSessionExpiredError(`payment failed: session expired (${response.status})`);
+    }
     throw new Error(`payment failed (${response.status})`);
   }
 

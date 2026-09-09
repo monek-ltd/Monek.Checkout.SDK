@@ -5,6 +5,7 @@ import { createSession } from '../core/init/createSession';
 import { buildFrameUrl, createSandboxedIframe } from '../core/iframe/createIframe';
 import { FrameMessenger } from '../core/iframe/FrameMessenger';
 import { Logger, makeLogger, type LogLevel } from '../core/utils/Logger';
+import type { SessionProvider } from './initialize';
 
 type PublicKey = string;
 
@@ -63,8 +64,11 @@ export class ExpressComponent
 
         mountRoot.innerHTML = '';
 
-        const provider = this.options.getSessionId as ((...args: unknown[]) => Promise<string>) | undefined;
+        const provider = this.options.getSessionId as SessionProvider | undefined;
         const sessionId = provider ? await provider() : await createSession(this.publicKey);
+        if (typeof sessionId !== 'string' || sessionId.length === 0) {
+            throw new Error('[Express] Session provider returned an invalid session id');
+        }
 
         this.debug('created session', { hasSessionId: Boolean(sessionId) });
 
