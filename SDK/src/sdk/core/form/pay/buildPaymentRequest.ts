@@ -1,6 +1,7 @@
 import type { CheckoutPort } from '../../../types/checkout-port';
 import { normaliseAmount } from '../../utils/normaliseCurrency';
 import { normalisePhoneNumber } from '../../utils/normalisePhoneNumber';
+import { sanitiseUrl } from '../../utils/sanitiseUrl';
 
 export async function buildPaymentRequest(
     cardTokenId: string,
@@ -41,15 +42,13 @@ export async function buildPaymentRequest(
 
     const billing = cardholderInformation.billingAddress;
 
-    const currentUrl =
+    const currentUrl = sanitiseUrl(
         typeof window !== 'undefined' && window?.location?.href
             ? window.location.href
-            : undefined;
+            : undefined
+    );
 
-    const userAgent =
-        typeof navigator !== 'undefined' && navigator?.userAgent
-            ? `web:${navigator.userAgent}`
-            : 'EmbeddedCheckout';
+    const userAgent = 'EmbeddedCheckout';
 
     const normalisedPhoneNumber = normalisePhoneNumber(cardholderInformation.phone);
 

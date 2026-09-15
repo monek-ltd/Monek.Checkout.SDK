@@ -13,6 +13,7 @@ import { authorisedPayment } from "./authorisedPayment";
 import { invokeCompletion } from "../invokeCompletion";
 import { mapApplePayPayment } from "../utils/mapApplePayContact";
 import { extractVerificationToken } from "../utils/extractVerificationToken";
+import { sanitiseUrl } from "../../utils/sanitiseUrl";
 
 type HandlePaymentAuthorisedParams = {
   session: any;
@@ -98,15 +99,13 @@ export async function handlePaymentAuthorised(params: HandlePaymentAuthorisedPar
       logger.warn("getDescription() threw; continuing without description", { error: (error as Error)?.message });
     }
 
-    const currentUrl =
+    const currentUrl = sanitiseUrl(
       typeof window !== "undefined" && window?.location?.href
         ? window.location.href
-        : undefined;
+        : undefined
+    );
 
-    const source =
-      typeof navigator !== "undefined" && navigator?.userAgent
-        ? `web:${navigator.userAgent}`
-        : "EmbeddedCheckout";
+    const source = "EmbeddedCheckout";
 
     const idempotencyToken = safeUuid();
 
