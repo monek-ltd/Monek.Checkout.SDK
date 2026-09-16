@@ -127,6 +127,10 @@ export function setupSubmissionController(
         return { status: 'success' };
     }
 
+    function safeGetSessionId(): string {
+        try { return component.getSessionId() ?? ''; } catch { return ''; }
+    }
+
     async function runOnce(): Promise<SubmissionOutcome> {
         if (isSubmitting) {
             debug('blocked: already submitting');
@@ -176,9 +180,40 @@ export function setupSubmissionController(
                 return await attemptSubmission(refreshedSessionId, completionOptions);
             }
         } catch (error) {
-            submitLogger.error('submission error', { message: (error as Error)?.message });
-            debug('error caught', { message: (error as Error)?.message });
-            return cancelled ? { status: 'cancel' } : { status: 'error', message: (error as Error)?.message };
+            const message = (error as Error)?.message;
+            const code = (error as { code?: string } | undefined)?.code;
+            submitLogger.error('submission error', { code, message });
+            debug('error caught', { code, message });
+
+            if (cancelled) return { status: 'cancel' };
+
+            // Surface tokenise/validation/3DS-lookup failures to the merchant. Previously only
+            // not-authenticated and declined payments reached onError; anything thrown earlier
+            // (e.g. an invalid card number rejected by the hosted fields) was silently swallowed.
+            if (completionOptions?.onError) {
+                try {
+                    const timerHook = submitLogger.time('completion:onError');
+                    await runCompletionHook(
+                        completionOptions.onError,
+                        {
+                            sessionId: safeGetSessionId(),
+                            cardTokenId: '',
+                            auth: null,
+                            payment: null,
+                            error: { code: code ?? 'SUBMISSION_FAILED', message }
+                        },
+                        helpers!
+                    );
+                    timerHook.end();
+                    debug('completion onError hook executed (submission error)');
+                } catch (hookError) {
+                    submitLogger.error('onError hook threw', { message: (hookError as Error)?.message });
+                }
+            } else {
+                submitLogger.warn('submission error with no onError hook');
+            }
+
+            return { status: 'error', message };
         } finally {
             try { helpers?.reenable(); debug('helpers reenabled'); } catch { submitLogger.warn('helpers.reenable threw (ignored)'); }
             try { webSocketClient?.close(); debug('websocket closed'); } catch { submitLogger.warn('websocket close failed (ignored)'); }
