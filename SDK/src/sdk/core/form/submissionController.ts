@@ -200,7 +200,7 @@ export function setupSubmissionController(
                             cardTokenId: '',
                             auth: null,
                             payment: null,
-                            error: { code: code ?? 'SUBMISSION_FAILED', message }
+                            error: { code: code ?? 'SUBMISSION_FAILED', message, cause: error }
                         },
                         helpers!
                     );

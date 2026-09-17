@@ -56,7 +56,7 @@ Monek Checkout (aka **checkout-js**) is an embedded checkout you can drop into y
       completion: {
         mode: 'client', // SDK performs payment client-side
         onSuccess: (ctx, { redirect }) => redirect('/thank-you'),
-        onError:   (ctx, { reenable }) => { reenable(); alert(ctx?.payment?.Message || 'Payment failed'); },
+        onError:   (ctx, { reenable }) => { reenable(); alert(ctx.error?.message || ctx.payment?.Message || 'Payment failed'); },
         onCancel:  (ctx, { reenable }) => reenable(),
       },
       countryCode: '826', //UK - Store Country
@@ -200,6 +200,31 @@ If any of these throw or return missing values, the SDK will surface an error an
 
 - **`onSuccess(context, helpers)`** — Typically call `helpers.redirect('/success')`.
 - **`onError(context, helpers)`** — Show an error and call `helpers.reenable()` to re-enable the form.
+  This fires for declined payments and failed 3-D Secure authentication, and also for failures that
+  happen before payment (invalid card details, tokenisation errors, 3-D Secure lookup errors). In the
+  pre-payment case `context.payment` and `context.auth` are `null` and `context.cardTokenId` is empty,
+  so check `context.error` first:
+
+  ```js
+  onError: (ctx, { reenable }) => {
+    reenable();
+    const message = ctx.error?.message || ctx.payment?.Message || 'Payment failed';
+    // ctx.error?.code is one of the codes below when present
+    showMessage(message);
+  }
+  ```
+
+  `context.error` is `{ code, message, cause }` where `code` is one of:
+
+  | Code | Meaning |
+  | --- | --- |
+  | `INVALID_PAN` | Card number failed the length or Luhn check. |
+  | `INVALID_EXPIRY` | Expiry is not in `MM/YY` format. |
+  | `INVALID_CVC` | CVC is not 3 or 4 digits. |
+  | `SESSION_EXPIRED` | The checkout session expired and could not be refreshed. |
+  | `SUBMISSION_FAILED` | Any other failure before payment (e.g. tokenisation or 3-D Secure lookup error). |
+
+  `cause` is the original error thrown by the SDK, useful for logging.
 - **`onCancel(context, helpers)`** — Called when a 3-D Secure challenge or Apple Pay sheet is cancelled.
 
 
