@@ -462,7 +462,7 @@
                     completion: {
                         mode: 'client',
                         onSuccess: (ctx, { redirect }) => redirect(`/demo-complete`),
-                        onError: (ctx, { reenable }) => { reenable(); alert(ctx?.payment?.Message || 'Payment failed'); },
+                        onError: (ctx, { reenable }) => { reenable(); alert(ctx?.error?.message || ctx?.payment?.Message || 'Payment failed'); },
                         onCancel: (ctx, { reenable }) => reenable(),
                     },
                     intent: 'Purchase',
@@ -487,9 +487,9 @@
                             updateApplePayPreview({
                                 status: 'error',
                                 context: ctx?.applePay,
-                                message: ctx?.payment?.Message || 'Payment failed',
+                                message: ctx?.error?.message || ctx?.payment?.Message || 'Payment failed',
                             });
-                            alert(ctx?.payment?.Message || 'Payment failed');
+                            alert(ctx?.error?.message || ctx?.payment?.Message || 'Payment failed');
                         },
                         onCancel: (ctx, { reenable }) => {
                             reenable();
@@ -502,7 +502,7 @@
                         onSuccess: (ctx, { redirect }) => redirect(`/demo-complete`),
                         onError: (ctx, { reenable }) => {
                             reenable();
-                            alert(ctx?.payment?.Message || 'Payment failed');
+                            alert(ctx?.error?.message || ctx?.payment?.Message || 'Payment failed');
                         },
                         onCancel: (ctx, { reenable }) => reenable(),
                     };
