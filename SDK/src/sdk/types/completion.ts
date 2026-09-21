@@ -77,12 +77,27 @@ export type ApplePayCompletionDetails = {
     shippingMethod?: ApplePayShippingMethodDetails;
 };
 
+export type SubmissionErrorCode =
+    | 'INVALID_PAN'
+    | 'INVALID_EXPIRY'
+    | 'INVALID_CVC'
+    | 'SESSION_EXPIRED'
+    | 'SUBMISSION_FAILED';
+
+export type SubmissionError = {
+    code: SubmissionErrorCode | string;
+    message?: string;
+    /** The original error thrown inside the SDK. */
+    cause?: unknown;
+};
+
 export type CompletionContext = {
     cardTokenId: string;
     sessionId: string;
     auth?: any;
     payment?: any;
-    error?: Error | unknown;
+    /** Set when submission failed before payment (validation, tokenise, 3DS lookup, session). */
+    error?: SubmissionError | unknown;
     applePay?: ApplePayCompletionDetails;
     verification?: PaymentVerificationResult;
 }

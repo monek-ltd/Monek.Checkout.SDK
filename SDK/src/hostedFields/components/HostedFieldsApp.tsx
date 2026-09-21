@@ -94,6 +94,16 @@ function sanitiseCvc(input: string) {
     return onlyDigits(input).slice(0, 4);
 }
 
+type ValidationErrorCode = 'INVALID_PAN' | 'INVALID_EXPIRY' | 'INVALID_CVC';
+
+// Local (pre-tokenise) validation failure. The code is forwarded to the parent so merchants can
+// distinguish a bad field from a tokenise/network failure.
+function validationError(code: ValidationErrorCode, message: string): Error {
+    const error = new Error(message) as Error & { code: ValidationErrorCode };
+    error.code = code;
+    return error;
+}
+
 function isValidExpiryMMYY(value: string) {
     return /^\d{2}\/\d{2}$/.test(value);
 }
@@ -138,16 +148,16 @@ const HostedFieldsApp: React.FC = () => {
         });
 
         if (panPlain.length < 12 || panPlain.length > 19) {
-            throw new Error('Invalid card number length');
+            throw validationError('INVALID_PAN', 'Invalid card number length');
         }
         if (!luhn(panPlain)) {
-            throw new Error('Invalid card number');
+            throw validationError('INVALID_PAN', 'Invalid card number');
         }
         if (!isValidExpiryMMYY(expiry)) {
-            throw new Error('Invalid expiry (MM/YY)');
+            throw validationError('INVALID_EXPIRY', 'Invalid expiry (MM/YY)');
         }
         if (!(cvcPlain.length === 3 || cvcPlain.length === 4)) {
-            throw new Error('Invalid CVC');
+            throw validationError('INVALID_CVC', 'Invalid CVC');
         }
 
         const sessionId = sessionIdRef.current;
@@ -260,7 +270,7 @@ const HostedFieldsApp: React.FC = () => {
                 try {
                     const expiry = (expRef.current?.value || '').trim();
                     if (!isValidExpiryMMYY(expiry)) {
-                        throw new Error('Invalid expiry (MM/YY)');
+                        throw validationError('INVALID_EXPIRY', 'Invalid expiry (MM/YY)');
                     }
                     window.parent.postMessage({ type: 'expiry', expiry }, allowedOriginRef.current);
                 }
