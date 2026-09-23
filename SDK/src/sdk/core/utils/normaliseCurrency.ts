@@ -43,9 +43,12 @@ export function majorToMinor(major: string | number, alpha3: string): number {
 export function normaliseAmount(input: AmountInput): Amountnormalised {
     const { alpha3, numeric } = normaliseCurrency(input.currency);
     if ('minor' in input) {
+        // input.minor may arrive as a numeric string from untyped JS callers;
+        // coerce to a number so it's serialised as a JSON number, not a string.
+        const minor = Number(input.minor ?? 0) || 0;
         return {
-            minor: input.minor ?? 0,
-            major: minorToMajorString(input.minor ?? 0, alpha3),
+            minor,
+            major: minorToMajorString(minor, alpha3),
             currencyAlpha3: alpha3,
             currencyNumeric: numeric || CURR_MAP_ALPHA_TO_NUM[alpha3] || ''
         };
