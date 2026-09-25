@@ -9,7 +9,7 @@ export async function collectBrowserInformation(): Promise<{
     timezone: string;
     userAgent: string;
   }> {
-    const tzHours = -new Date().getTimezoneOffset() / 60;
+    const tzMinutes = -new Date().getTimezoneOffset();
     
     return {
       acceptHeader: '*/*',
@@ -19,7 +19,7 @@ export async function collectBrowserInformation(): Promise<{
       colourDepth: String(window.screen?.colorDepth ?? 32),
       screenHeight: String(window.screen?.height ?? 0),
       screenWidth: String(window.screen?.width ?? 0),
-      timezone: String(tzHours),
+      timezone: String(tzMinutes),
       userAgent: navigator.userAgent || 'SDK',
     };
 };
