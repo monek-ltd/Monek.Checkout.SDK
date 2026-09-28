@@ -310,9 +310,7 @@ function hasPostalAddress(contact?: ApplePayJS.ApplePayPaymentContact): boolean
   return Boolean(
     hasAddressLines ||
     contact.locality ||
-    contact.postalCode ||
-    contact.administrativeArea ||
-    contact.countryCode
+    contact.postalCode
   );
 }
 
