@@ -54,6 +54,36 @@ export async function handlePaymentAuthorised(params: HandlePaymentAuthorisedPar
 
   const paymentData = event.payment;
 
+  // Apple Pay's requiredBillingContactFields includes "postalAddress", but the wallet can
+  // still return a billingContact without a usable postal address in practice. When that
+  // happens, fall back to the shipping address supplied by the wallet rather than sending
+  // an incomplete billing address to the backend. If neither contact has a usable address,
+  // decline the payment locally (STATUS_FAILURE) before any call to the Monek back-end.
+  if (!hasPostalAddress(paymentData?.billingContact))
+  {
+    if (hasPostalAddress(paymentData?.shippingContact))
+    {
+      logger.warn("handlePaymentAuthorised: billing address missing/incomplete; using shipping address as billing address");
+      paymentData.billingContact = paymentData.shippingContact;
+    }
+    else
+    {
+      logger.error("handlePaymentAuthorised: no usable billing or shipping address returned by Apple Pay; declining before backend call");
+      session.completePayment({ status: (window as any).ApplePaySession.STATUS_FAILURE });
+
+      await invokeCompletion(
+        "onError",
+        completionOptions,
+        { sessionId, cardTokenId: "applepay", payment: { code: "NO_BILLING_ADDRESS" } },
+        completionHelpers,
+        logger.child("Completion")
+      );
+
+      logger.info("handlePaymentAuthorised: end (no billing address)");
+      return;
+    }
+  }
+
   if (callbacks?.onExpressPaymentDetails)
   {
     const details = mapApplePayPayment(paymentData, sessionId);
@@ -266,6 +296,22 @@ export async function handlePaymentAuthorised(params: HandlePaymentAuthorisedPar
 
     logger.info("handlePaymentAuthorised: end (exception)");
   }
+}
+
+function hasPostalAddress(contact?: ApplePayJS.ApplePayPaymentContact): boolean
+{
+  if (!contact)
+  {
+    return false;
+  }
+
+  const hasAddressLines = Array.isArray(contact.addressLines) && contact.addressLines.some(line => Boolean(line?.trim()));
+
+  return Boolean(
+    hasAddressLines ||
+    contact.locality ||
+    contact.postalCode
+  );
 }
 
 function buildApplePayCompletionDetails(payment?: ApplePayJS.ApplePayPayment): ApplePayCompletionDetails | undefined {
