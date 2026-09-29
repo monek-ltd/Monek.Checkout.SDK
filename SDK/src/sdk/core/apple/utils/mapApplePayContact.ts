@@ -47,6 +47,64 @@ function mapContact(contact?: ApplePayJS.ApplePayPaymentContact): ExpressContact
     return details;
 }
 
+export type ApplePayCardHolder = {
+    name?: string;
+    emailAddress?: string;
+    phoneNumber?: string;
+    billingStreet1?: string;
+    billingStreet2?: string;
+    billingCity?: string;
+    billingPostcode?: string;
+    billingCountry?: string;
+    shippingStreet1?: string;
+    shippingStreet2?: string;
+    shippingCity?: string;
+    shippingPostcode?: string;
+    shippingCountry?: string;
+};
+
+/**
+ * Builds the CardHolder payload sent to the backend (mirrors the CardHolderDetail
+ * shape used by the card-entry flow), so the billing and shipping addresses
+ * captured by the Apple Pay sheet actually reach the backend instead of only
+ * being surfaced via the onExpressPaymentDetails callback.
+ */
+export function mapApplePayCardHolder(
+    payment: ApplePayJS.ApplePayPayment | undefined
+): ApplePayCardHolder | undefined {
+    if (!payment) {
+        return undefined;
+    }
+
+    const billingContact = payment.billingContact;
+    const shippingContact = payment.shippingContact;
+
+    const billingAddress = billingContact ? buildAddress(billingContact) : undefined;
+    const shippingAddress = shippingContact ? buildAddress(shippingContact) : undefined;
+
+    const nameParts = [billingContact?.givenName, billingContact?.familyName]
+        .map((value) => value?.trim())
+        .filter(Boolean);
+
+    const cardHolder: ApplePayCardHolder = {
+        ...(nameParts.length ? { name: nameParts.join(' ') } : {}),
+        ...(billingContact?.emailAddress ? { emailAddress: billingContact.emailAddress } : {}),
+        ...(billingContact?.phoneNumber ? { phoneNumber: billingContact.phoneNumber } : {}),
+        ...(billingAddress?.addressLine1 ? { billingStreet1: billingAddress.addressLine1 } : {}),
+        ...(billingAddress?.addressLine2 ? { billingStreet2: billingAddress.addressLine2 } : {}),
+        ...(billingAddress?.city ? { billingCity: billingAddress.city } : {}),
+        ...(billingAddress?.postcode ? { billingPostcode: billingAddress.postcode } : {}),
+        ...(billingAddress?.country ? { billingCountry: billingAddress.country } : {}),
+        ...(shippingAddress?.addressLine1 ? { shippingStreet1: shippingAddress.addressLine1 } : {}),
+        ...(shippingAddress?.addressLine2 ? { shippingStreet2: shippingAddress.addressLine2 } : {}),
+        ...(shippingAddress?.city ? { shippingCity: shippingAddress.city } : {}),
+        ...(shippingAddress?.postcode ? { shippingPostcode: shippingAddress.postcode } : {}),
+        ...(shippingAddress?.country ? { shippingCountry: shippingAddress.country } : {}),
+    };
+
+    return Object.keys(cardHolder).length ? cardHolder : undefined;
+}
+
 function buildAddress(contact: ApplePayJS.ApplePayPaymentContact): Address | undefined {
     const [line1, line2, ...restLines] = contact.addressLines ?? [];
     const additionalLine = restLines.filter(Boolean).join(' ').trim();
