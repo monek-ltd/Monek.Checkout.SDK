@@ -43,7 +43,7 @@ Monek Checkout (aka **checkout-js**) is an embedded checkout you can drop into y
         getCardholderDetails: () => ({
           name: document.querySelector('[name="billingName"]').value,
           email: document.querySelector('[name="billingEmail"]').value,
-          homePhone: document.querySelector('[name="billingPhone"]').value,
+          phone: document.querySelector('[name="billingPhone"]').value,
           billingAddress: {
             addressLine1: document.querySelector('[name="billingAddress1"]').value,
             addressLine2: document.querySelector('[name="billingAddress2"]').value,
@@ -60,6 +60,7 @@ Monek Checkout (aka **checkout-js**) is an embedded checkout you can drop into y
         onCancel:  (ctx, { reenable }) => reenable(),
       },
       countryCode: '826', //UK - Store Country
+      paymentReference: 'ORDER-12345', // optional - your own reference for this payment
     };
 
     const checkout = sdk.createComponent('checkout', options);
@@ -99,31 +100,39 @@ In classic form setups you can keep auto-intercept and expose a manual button th
 
 ## Completion Modes
 
-- **`completion.mode: 'client'`** — The SDK finalises the payment client-side, then calls `onSuccess` / `onError`.
-- **`completion.mode: 'server'`** — The SDK attaches results and submits back to your server (or you can handle the redirect yourself in `onSuccess`).
+- **`completion.mode: 'client'`** — The SDK finalises the payment client-side, then calls `onSuccess` / `onError`. `onSuccess` is required in this mode.
+- **`completion.mode: 'form'`** — After tokenisation + 3-D Secure, the SDK adds hidden `CardTokenID` and `SessionID` fields to your form and submits it to your server, which then takes the payment.
+- **`completion.mode: 'none'`** — The SDK stops after tokenisation + 3-D Secure and takes no further action.
 
-Both modes support:
+Set `mode` explicitly; if it is omitted the card flow does nothing after 3-D Secure. The express (Apple Pay) surface always takes the payment client-side, regardless of `mode`.
+
+Hooks:
 
 - `onSuccess(context, helpers)`
 - `onError(context, helpers)`
 - `onCancel(context, helpers)`
+- `onClosed(context, helpers)` — fallback used when a 3-D Secure challenge is cancelled and no `onCancel` is set
 
 When the **express** Apple Pay surface completes, the `context` argument also includes an `applePay` object so you can access the customer information that Apple collected during the sheet interaction. This exposes the payer's email, phone, and name when available, as well as normalised copies of the billing and shipping contacts (address lines, postal code, country, etc.) and the selected shipping method. Use this to pre-fill your order confirmation or update your customer record without requesting the same information twice.
 
 ## How to Embed Different Formats
+
+`Monek(publicKey)` returns a `Promise`, so `await` it (or use `.then`). `options` below is the same object shown in the Quick Start.
 
 ### IIFE (recommended for plain sites)
 
 ```html
 <script src="https://checkout-js.monek.com/monek-checkout.iife.js"></script>
 <script>
-  const sdk = Monek('your-public-key');
+  (async () => {
+    const sdk = await Monek('your-public-key');
 
-  const checkout = sdk.createComponent('checkout');
-  checkout.mount('#checkout-container');
+    const checkout = sdk.createComponent('checkout', options);
+    await checkout.mount('#checkout-container');
 
-  const express = sdk.createComponent('express');
-  express.mount('#express-container');
+    const express = sdk.createComponent('express', options);
+    await express.mount('#express-container');
+  })();
 </script>
 ```
 
@@ -133,10 +142,12 @@ When the **express** Apple Pay surface completes, the `context` argument also in
 ```html
 <script src="https://checkout-js.monek.com/monek-checkout.umd.js"></script>
 <script>
-  const sdk = Monek('your-public-key');
+  (async () => {
+    const sdk = await Monek('your-public-key');
 
-  const checkout = sdk.createComponent('checkout');
-  checkout.mount('#checkout-container');
+    const checkout = sdk.createComponent('checkout', options);
+    await checkout.mount('#checkout-container');
+  })();
 </script>
 ```
 
@@ -146,10 +157,10 @@ When the **express** Apple Pay surface completes, the `context` argument also in
 <script type="module">
   import Monek from 'https://checkout-js.monek.com/monek-checkout.es.js';
 
-  const sdk = Monek('your-public-key');
+  const sdk = await Monek('your-public-key');
 
-  const checkout = sdk.createComponent('checkout');
-  checkout.mount('#checkout-container');
+  const checkout = sdk.createComponent('checkout', options);
+  await checkout.mount('#checkout-container');
 </script>
 ```
 
@@ -158,10 +169,68 @@ When the **express** Apple Pay surface completes, the `context` argument also in
 ```ts
 import Monek from 'monek-checkout.js';
 
-const sdk = Monek('your-public-key');
-const checkout = sdk.createComponent('checkout');
-checkout.mount('#checkout-container');
+const sdk = await Monek('your-public-key');
+const checkout = sdk.createComponent('checkout', options);
+await checkout.mount('#checkout-container');
 ```
+
+## SDK API
+
+### `Monek(publicKey, defaultOptions?)`
+
+Resolves to an SDK instance:
+
+| Member | Description |
+| --- | --- |
+| `createComponent(type, options?)` | Creates a `'checkout'` (hosted card fields) or `'express'` (Apple Pay) component. If `options` is omitted, the `defaultOptions` passed to `Monek()` are used (the two are not merged). |
+| `getSessionId()` | Returns a `Promise<string>` for the checkout session. Components mounted at the same time share one session. |
+| `resetSession()` | Discards the cached session so the next mount creates a fresh one. |
+
+### Checkout component
+
+| Method | Description |
+| --- | --- |
+| `mount(selector)` | Renders the hosted fields into the element. The element must be inside a `<form>`. |
+| `destroy()` | Removes the iframe and all listeners. |
+| `enableAutoIntercept(formOrSelector?)` | Intercepts the form's native `submit` (on by default after `mount`). |
+| `disableIntercept()` | Stops intercepting the native `submit`. |
+| `triggerSubmission()` | Runs tokenise > 3DS > completion manually. |
+| `cancelSubmission()` | Soft-cancels the current run. |
+
+### Express component
+
+| Method | Description |
+| --- | --- |
+| `mount(selector)` | Renders the Apple Pay button. Nothing is mounted if Apple Pay is not enabled for your public key. |
+| `destroy()` | Removes the iframe and all listeners. |
+
+## Payment Reference and Validity ID
+
+Both are plain options passed to `createComponent` and are sent with the payment request. Pass them to **each** component you create (checkout and express), as each component reads only its own options.
+
+```js
+const options = {
+  // ...callbacks, completion, etc.
+  paymentReference: 'ORDER-12345',   // your own reference for the payment, e.g. an order number
+  validityId: 'validity-id-from-monek', // only set this if Monek has given you one
+};
+
+const checkout = sdk.createComponent('checkout', options);
+const express = sdk.createComponent('express', options);
+```
+
+- **`paymentReference`** — optional string. Sent as `paymentReference` on the payment so you can match the transaction to your order.
+- **`validityId`** — optional string. Sent as `validityId` on the payment; omit it unless you have been issued one.
+
+Options are read when the component is created. If the value changes (for example a new order number), destroy the component and create it again with the new options:
+
+```js
+checkout.destroy();
+checkout = sdk.createComponent('checkout', { ...options, paymentReference: newOrderRef });
+await checkout.mount('#checkout-container');
+```
+
+In `completion.mode: 'form'` the SDK does not take the payment, so these two options are not used for card payments; apply them in your server-side payment call instead.
 
 
 ## Options Reference (most common)
@@ -171,17 +240,27 @@ type InitOptions = {
   styling?: StylingOptions;   // theming (colors, fonts, cssVars)
   completion?: CompletionOptions;  // hooks & client/server mode
   callbacks?: InitCallbacks;  // data providers (amount, cardholder, description)
-  settlementType?: 'Auto' | 'Manual';
-  storeCardDetails?: boolean;
-  intent?: 'Purchase' | 'Subscription' | 'AccountStatus';
-  cardEntry?: 'ECommerce' | 'CardOnFile' | 'Manual';
-  challenge?: { display: 'popup' | 'fullscreen'; size: 'small'|'medium'|'large' };
-  order?: 'Checkout' | 'Mail' | 'Telephone' | 'Recurring';
-  countryCode?: number | string;   // The merchant's country code.
+  settlementType?: 'Auto' | 'Manual';                      // default 'Auto'
+  storeCardDetails?: boolean;                              // default false
+  intent?: 'Purchase' | 'Subscription' | 'AccountStatus';  // default 'Purchase'
+  cardEntry?: 'ECommerce' | 'CardOnFile' | 'Manual';       // default 'ECommerce'
+  challenge?: {                                            // 3-D Secure challenge window
+    display?: 'popup' | 'fullscreen';                      // default 'popup'
+    size?: 'small' | 'medium' | 'large' | { width: number; height: number }; // default 'medium'
+    force?: boolean;                                       // request a challenge
+  };
+  order?: 'Checkout' | 'Mail' | 'Telephone' | 'Recurring' | 'Instalments'; // default 'Checkout'
+  countryCode?: number | string;   // The merchant's country code. Default 826 (UK)
+  paymentReference?: string;       // your reference for the payment (e.g. order number)
   validityId?: string;             // use if provided
-  channel?: string;                // e.g. 'Web'
+  channel?: string;                // default 'Web'
   debug?: boolean;                 // enables console logs
   logLevel?: 'debug'|'info'|'warn'|'error'|'silent';
+
+  // Express (Apple Pay) only
+  appleMerchantLabel?: string;     // name shown on the Apple Pay sheet total. Default 'Merchant'
+  form?: HTMLFormElement;          // form used by completion helpers. Default: first <form> on the page
+  sourceIpAddress?: string;        // shopper IP address, if you want to supply it
 };
 ```
 
@@ -196,7 +275,45 @@ All three can return a value directly or a `Promise`.
 
 If any of these throw or return missing values, the SDK will surface an error and **halt submission**.
 
+#### Optional Callbacks (Express)
+
+- **`onExpressPaymentDetails(details)`** — Called when the shopper authorises Apple Pay, before the payment is taken. `details` is `{ sessionId, billingContact?, shippingContact? }`, where each contact is `{ name?, email?, phone?, address? }`. Use it to capture the shopper's details on your order. Errors thrown here are logged and ignored.
+- **`onPaymentAuthorised(result)`** — Called after the gateway approves an Apple Pay payment so you can verify it server-side before the shopper sees success. `result` is `{ sessionId, approved, transactionId?, verification?, payment }`, where `verification` is a signed token to validate on your server. Return `{ verified: boolean, redirect?, message? }`:
+  - `verified: false` (or a thrown error) fails the Apple Pay sheet and calls `onError`.
+  - `redirect` (URL string or `{ url, method, parameters }`) is followed after `onSuccess`.
+  - The returned object is available to hooks as `context.verification`.
+
+  Without this callback the payment completes on the gateway result alone.
+
+  ```js
+  callbacks: {
+    // ...getAmount, getDescription, getCardholderDetails
+    onPaymentAuthorised: async ({ sessionId, verification }) => {
+      const response = await fetch('/verify-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, verification }),
+      });
+      const { ok, redirectUrl } = await response.json();
+      return { verified: ok, redirect: redirectUrl };
+    },
+  }
+  ```
+
 #### Completion Hooks
+
+Each hook receives `(context, helpers)`. A hook can also be a redirect object (`{ url, method, parameters }`) instead of a function.
+
+`context` is `{ sessionId, cardTokenId, auth?, payment?, error?, applePay?, verification? }`.
+
+`helpers`:
+
+| Helper | Description |
+| --- | --- |
+| `redirect(to)` | Navigates to a URL string, or `{ url, method: 'GET' \| 'POST', parameters }`. |
+| `submitForm(fields?)` | Adds `fields` to the form as hidden inputs and submits it. |
+| `reenable()` | Re-enables the form's buttons. |
+| `disable()` | Disables the form's buttons. |
 
 - **`onSuccess(context, helpers)`** — Typically call `helpers.redirect('/success')`.
 - **`onError(context, helpers)`** — Show an error and call `helpers.reenable()` to re-enable the form.
@@ -225,6 +342,8 @@ If any of these throw or return missing values, the SDK will surface an error an
   | `SUBMISSION_FAILED` | Any other failure before payment (e.g. tokenisation or 3-D Secure lookup error). |
 
   `cause` is the original error thrown by the SDK, useful for logging.
+
+  For Apple Pay failures that happen before or during authorisation, `context.payment.code` is one of `NO_BILLING_ADDRESS`, `NO_TOKEN` or `AUTHORISE_EXCEPTION`.
 - **`onCancel(context, helpers)`** — Called when a 3-D Secure challenge or Apple Pay sheet is cancelled.
 
 
@@ -258,12 +377,16 @@ You can pass a `styling` object or set CSS variables:
 const options = {
   styling: {
     theme: 'light', // or 'dark'
-    core: { backgroundColor: '#fff', textColor: '#0f172a', borderRadius: 12 },
-    inputs: { inputBackgroundColor: '#fff', inputTextColor: '#0f172a' },
+    layout: { containerPadding: 12, textAlign: 'left', buttonAlign: 'stretch' },
+    core: { backgroundColor: '#fff', textColor: '#0f172a', fontFamily: 'system-ui', borderRadius: 12 },
+    inputs: { inputBackgroundColor: '#fff', inputTextColor: '#0f172a', inputBorderColor: '#d1d5db', inputBorderRadius: 8 },
+    typography: { fontSize: 14 },
     cssVars: { '--monek-input-focus': '#0ea5e9' }
   }
 };
 ```
+
+Lengths accept a number (pixels) or a CSS string (`'1rem'`). `containerPadding` also accepts `[vertical, horizontal]` or `[top, right, bottom, left]`. `textAlign` is `'left' | 'center' | 'right'`; `buttonAlign` additionally allows `'stretch'`.
 
 ## Project Structure
 
