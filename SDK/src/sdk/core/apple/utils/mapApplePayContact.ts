@@ -63,12 +63,7 @@ export type ApplePayCardHolder = {
     shippingCountry?: string;
 };
 
-/**
- * Builds the CardHolder payload sent to the backend (mirrors the CardHolderDetail
- * shape used by the card-entry flow), so the billing and shipping addresses
- * captured by the Apple Pay sheet actually reach the backend instead of only
- * being surfaced via the onExpressPaymentDetails callback.
- */
+// Builds the CardHolder payload sent to the backend
 export function mapApplePayCardHolder(
     payment: ApplePayJS.ApplePayPayment | undefined
 ): ApplePayCardHolder | undefined {

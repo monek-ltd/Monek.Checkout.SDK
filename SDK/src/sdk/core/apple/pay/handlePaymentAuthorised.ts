@@ -139,10 +139,7 @@ export async function handlePaymentAuthorised(params: HandlePaymentAuthorisedPar
 
     const idempotencyToken = safeUuid();
 
-    // Maps the billing/shipping addresses captured by the Apple Pay sheet onto
-    // the CardHolder shape expected by the backend (Service.TokenisedPayment's
-    // CardHolderDetail), so it can actually resolve them instead of receiving
-    // nothing for Apple Pay transactions.
+    // Maps the billing/shipping addresses captured by the Apple Pay sheet
     const cardHolder = mapApplePayCardHolder(paymentData);
 
     const authoriseBody = {
