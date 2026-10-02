@@ -189,11 +189,14 @@ async function performChallenge(
     creq,
     display,
     size,
+    // The back-channel only ever resolves with a real ACS result. Any WS failure (never connected,
+    // closed when a mobile browser is backgrounded for an app-based approval, or timed out) rejects,
+    // so the challenge iframe stays open and the front-channel close or the hard timeout ends it.
+    // Settling here on failure would tear down the ACS page before the cardholder can finish.
     waitForResult: async () => {
       if (!webSocketClient) {
-        logger.warn('3DS challenge: no WebSocket; using timeout fallback');
-        await new Promise(resolve => setTimeout(resolve, TIMEOUT_CHALLENGE_MS));
-        return { status: 'timeout' as const };
+        logger.warn('3DS challenge: no WebSocket; relying on front-channel close');
+        throw new Error('No WebSocket for challenge back-channel');
       }
 
       try {
@@ -224,8 +227,11 @@ async function performChallenge(
         return { status: event?.status ?? 'unknown', resultSummary: event?.resultSummary };
       }
       catch (error) {
-        logger.warn('3DS challenge: WS wait failed; treating as timeout', { message: (error as Error)?.message });
-        return { status: 'timeout' as const };
+        logger.warn('3DS challenge: WS wait failed; relying on front-channel close', {
+          message: (error as Error)?.message,
+          visibilityState: document.visibilityState
+        });
+        throw error;
       }
     },
   } as ChallengeOptions, logger);
