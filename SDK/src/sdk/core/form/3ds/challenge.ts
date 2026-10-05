@@ -3,7 +3,8 @@ import type { ChallengeOptions, ChallengeSize, ChallengeResult } from '../../../
 import type { Logger } from '../../utils/Logger';
 import { performRedirect } from '../helpers/performRedirect';
 
-const DEFAULT_HARD_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+// Matches the ~10 minute ACS challenge timeout, so app-based (OOB) approvals have time to finish.
+const DEFAULT_HARD_TIMEOUT_MS = 10 * 60 * 1000;
 // The notification page auto-fires 3ds.challenge.close for every outcome. On the happy path the
 // authoritative result arrives via the WebSocket back-channel (3ds.challenge.result, status Y);
 // give it a brief grace window to win before the front-channel close completes the flow, so we
@@ -87,11 +88,19 @@ export function openChallengeWindow(options: ChallengeOptions, logger: Logger) {
 
   let frontChannelCloseTimeoutId: number | undefined;
 
+  const openedAt = Date.now();
+
   const complete = (result: ChallengeResult) => {
     if (isSettled) {
       return;
     }
     isSettled = true;
+    logger.info('3DS challenge: settled', {
+      kind: result.kind,
+      status: result.kind === 'polled' ? result.data?.status : undefined,
+      elapsedMs: Date.now() - openedAt,
+      visibilityState: document.visibilityState
+    });
     cleanup();
     resolveDone(result);
   };
@@ -108,6 +117,7 @@ export function openChallengeWindow(options: ChallengeOptions, logger: Logger) {
     try {
       window.removeEventListener('keydown', onEscapeKey);
     } catch { }
+    document.removeEventListener('visibilitychange', onVisibilityChange);
     try {
       overlayElement.remove();
     } catch { }
@@ -117,6 +127,15 @@ export function openChallengeWindow(options: ChallengeOptions, logger: Logger) {
       window.clearTimeout(frontChannelCloseTimeoutId);
     }
   };
+
+  // Cardholders often background the page to approve in a banking app; record it for diagnosis.
+  const onVisibilityChange = () => {
+    logger.info('3DS challenge: page visibility changed', {
+      visibilityState: document.visibilityState,
+      elapsedMs: Date.now() - openedAt
+    });
+  };
+  document.addEventListener('visibilitychange', onVisibilityChange);
 
   // User closed (button or ESC)
   const onEscapeKey = (event: KeyboardEvent) => {
@@ -177,13 +196,17 @@ export function openChallengeWindow(options: ChallengeOptions, logger: Logger) {
       try {
         const data = await waitForResult();
         return { kind: 'polled', data } as const;
-      } catch {
+      } catch (error) {
+        logger.info('3DS challenge: back-channel unavailable; awaiting front-channel close', {
+          message: (error as Error)?.message
+        });
         return new Promise<never>(() => undefined) as never;
       }
     })()
     : new Promise<never>(() => undefined);
 
   const hardTimeoutId = window.setTimeout(() => {
+    logger.warn('3DS challenge: hard timeout reached', { timeoutMs: DEFAULT_HARD_TIMEOUT_MS });
     complete({ kind: 'timeout' });
   }, DEFAULT_HARD_TIMEOUT_MS);
 
