@@ -11,7 +11,7 @@ import type { ApplePayHandlerOptions } from "../applePayEventHandler";
 import { Logger } from "../../utils/Logger";
 import { authorisedPayment } from "./authorisedPayment";
 import { invokeCompletion } from "../invokeCompletion";
-import { mapApplePayPayment } from "../utils/mapApplePayContact";
+import { mapApplePayPayment, mapApplePayCardHolder } from "../utils/mapApplePayContact";
 import { extractVerificationToken } from "../utils/extractVerificationToken";
 import { sanitiseUrl } from "../../utils/sanitiseUrl";
 
@@ -139,8 +139,12 @@ export async function handlePaymentAuthorised(params: HandlePaymentAuthorisedPar
 
     const idempotencyToken = safeUuid();
 
+    // Maps the billing/shipping addresses captured by the Apple Pay sheet
+    const cardHolder = mapApplePayCardHolder(paymentData);
+
     const authoriseBody = {
       sessionId,
+        ...(cardHolder ? { cardHolder } : {}),
         settlementType: (options as ApplePayHandlerOptions).settlementType ?? "Auto",
         intent: (options as ApplePayHandlerOptions).intent ?? "Purchase",
         cardEntry: (options as ApplePayHandlerOptions).cardEntry ?? "ECommerce",
@@ -163,6 +167,7 @@ export async function handlePaymentAuthorised(params: HandlePaymentAuthorisedPar
 
     logger.debug("authorise request (redacted)", {
       hasSession: Boolean(sessionId),
+      hasCardHolder: Boolean(cardHolder),
       settlementType: authoriseBody.settlementType,
       intent: authoriseBody.intent,
       cardEntry: authoriseBody.cardEntry,
