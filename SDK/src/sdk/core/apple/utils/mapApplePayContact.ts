@@ -81,10 +81,16 @@ export function mapApplePayCardHolder(
         .map((value) => value?.trim())
         .filter(Boolean);
 
+    const emailAddress = billingContact?.emailAddress ? billingContact.emailAddress 
+        : shippingContact?.emailAddress ? shippingContact.emailAddress : undefined;
+
+    const phoneNumber = billingContact?.phoneNumber ? billingContact.phoneNumber 
+        : shippingContact?.phoneNumber ? shippingContact.phoneNumber : undefined;
+
     const cardHolder: ApplePayCardHolder = {
         ...(nameParts.length ? { name: nameParts.join(' ') } : {}),
-        ...(billingContact?.emailAddress ? { emailAddress: billingContact.emailAddress } : {}),
-        ...(billingContact?.phoneNumber ? { phoneNumber: billingContact.phoneNumber } : {}),
+        ...(emailAddress ? { emailAddress: emailAddress } : {}),
+        ...(phoneNumber ? { phoneNumber: phoneNumber } : {}),
         ...(billingAddress?.addressLine1 ? { billingStreet1: billingAddress.addressLine1 } : {}),
         ...(billingAddress?.addressLine2 ? { billingStreet2: billingAddress.addressLine2 } : {}),
         ...(billingAddress?.city ? { billingCity: billingAddress.city } : {}),
